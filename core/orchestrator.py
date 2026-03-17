@@ -3,6 +3,7 @@ from sim.rf_environment import RFEnvironment
 from modules.detector.detector import WaterfallDetector
 from modules.classifier.classifier import ModulationClassifier
 from modules.direction_finder.df_logic import DirectionFinder
+from modules.optimizer.et_optimizer import SmartOptimizer
 from core.config import NOISE_FLOOR
 
 class SystemOrchestrator:
@@ -13,6 +14,7 @@ class SystemOrchestrator:
         self.detector = WaterfallDetector()
         self.classifier = ModulationClassifier()
         self.df = DirectionFinder()
+        self.optimizer = SmartOptimizer()
         self.latest_results = {}
 
     def run_cycle(self):
@@ -22,14 +24,11 @@ class SystemOrchestrator:
         # 2. Detect Signals
         detections = self.detector.detect(psd_frame, NOISE_FLOOR)
         
-        # 3. Process Detections
+        # 3. Process Detections & Update EA Strategy
         processed_signals = []
         for det in detections:
-            # Classify
             mod_type = self.classifier.classify(det)
-            # Find Direction
             aoa = self.df.estimate_aoa(det)
-            
             processed_signals.append({
                 "freq_idx": det['center_idx'],
                 "snr": round(det['snr'], 2),
@@ -37,9 +36,13 @@ class SystemOrchestrator:
                 "aoa": round(aoa, 2)
             })
             
+        # 4. AI Reinforcement Learning / Look-Through Logic
+        ea_status = self.optimizer.update_strategy(processed_signals)
+            
         self.latest_results = {
             "waterfall": psd_frame,
             "signals": processed_signals,
+            "ea_status": ea_status,
             "timestamp": time.time()
         }
         return self.latest_results
