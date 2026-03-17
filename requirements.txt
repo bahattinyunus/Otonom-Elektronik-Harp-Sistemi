@@ -1,0 +1,7 @@
+numpy
+scipy
+matplotlib
+flask
+flask-socketio
+opencv-python
+torch
