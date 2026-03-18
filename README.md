@@ -1,5 +1,7 @@
 # 📡 Otonom Elektronik Harp Sistemi (Cognitive-EW-Suite) v3.0
 
+![Otonom EW Suite Banner](banner.png)
+
 ![Version](https://img.shields.io/badge/version-3.0.0-blue.svg)
 ![TEKNOFEST](https://img.shields.io/badge/TEKNOFEST-2026-red.svg)
 ![Status](https://img.shields.io/badge/deep--tech_sim-active-success.svg)
