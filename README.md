@@ -1,62 +1,73 @@
-# 📡 Otonom Elektronik Harp Sistemi (Cognitive-EW-Suite)
+# 📡 Otonom Elektronik Harp Sistemi (Cognitive-EW-Suite) v2.0
 
-![Version](https://img.shields.io/badge/version-1.5.0-blue.svg)
+![Version](https://img.shields.io/badge/version-2.0.0-blue.svg)
 ![TEKNOFEST](https://img.shields.io/badge/TEKNOFEST-2026-red.svg)
 ![Status](https://img.shields.io/badge/deep--tech_sim-active-success.svg)
+![AI Level](https://img.shields.io/badge/AI_Level-Cognitive_RL-orange.svg)
 
-**Otonom Elektronik Harp Sistemi**, TEKNOFEST 2026 Elektronik Harp (EH) Yarışması şartnamesine uygun olarak geliştirilmiş, yapay zeka destekli, çok disiplinli bir Bilişsel Elektronik Harp (Cognitive EW) mimarisidir.
+**Otonom Elektronik Harp Sistemi**, modern muharebe sahasındaki spektral karmaşayı yönetmek üzere tasarlanmış, yapay zeka (Reinforcement Learning) destekli, çok disiplinli bir Bilişsel Elektronik Harp (Cognitive EW) simülasyon ve komuta-kontrol mimarisidir. TEKNOFEST 2026 şartnameleri ve modern savaş doktrinleri (OODA Loop) temel alınarak geliştirilmiştir.
 
 ---
 
 ## 🏛️ Executive Summary (Teknik Özet)
 
-Modern muharebe sahasında RF spektrumu, statik bir ortamdan ziyade dinamik ve sürekli değişen bir mücadele alanıdır. Bu proje; klasik EH sistemlerinin ötesine geçerek, **Bilişsel (Cognitive)** bir yaklaşımla spektrumu bir "canlı" gibi dinler, öğrenir ve tepki verir.
+Gelişen radar ve haberleşme teknolojileri, salt güç tabanlı "Brute-Force Jamming" (Kaba Kuvvet Karıştırma) yöntemlerini işlevsiz kılmaktadır. Bu proje; klasik EH sistemlerinin ötesine geçerek, spektrumu bir "canlı" gibi dinleyen, hedeflerin kaçış paternlerini öğrenen ve otonom tepki veren **Bilişsel (Cognitive)** bir yaklaşım sunar.
 
 Sistem, insan müdahalesi olmadan şu döngüyü (OODA Loop) otonom olarak işletir:
-1.  **Gözlem:** SDR üzerinden IQ verisinin gerçek zamanlı toplanması ve FFT analizi.
-2.  **Yönelim:** Sinyal tespiti ve modülasyon sınıflandırması yoluyla tehdit kütüphanesi ile eşleştirme.
-3.  **Karar:** Pekiştirmeli Öğrenme (Reinforcement Learning) ajanları ile en etkili ET (Elektronik Taarruz) tekniğinin seçilmesi.
-4.  **Eylem:** FPGA/SDR tabanlı Look-Through (Ara Bakış) protokolü ile hedefi etkisiz hale getirme.
+1.  **Gözlem (Observe):** SDR (Yazılım Tanımlı Radyo) simülasyonu üzerinden IQ/PSD verisinin gerçek zamanlı toplanması ve şelale (waterfall) analizi.
+2.  **Yönelim (Orient):** Spektrumdaki anomalilerin tespiti, sezgisel algoritmalarla modülasyon sınıflandırması ve **TDOA** (Time Difference of Arrival) tabanlı yön (AoA) kestirimi.
+3.  **Karar (Decide):** **Q-Learning** (Pekiştirmeli Öğrenme) ajanı aracılığıyla, hedefin davranışlarına (Frekans Atlama vb.) göre en etkili Elektronik Taarruz (ET) zamanlamasının seçilmesi.
+4.  **Eylem (Act):** Hedef üzerinde **Look-Through (Ara Bakış)** protokolü ile karıştırma uygulanması ve sonucun ödül/ceza (Reward) mekanizması ile değerlendirilmesi.
 
 ---
 
-## 🏗️ Derinlemesine Teknik Mimari
+## 🏗️ Derinlemesine Teknik Mimari (v2.0 Güncellemeleri)
 
-### 1. 🌊 Gelişmiş RF Simülasyonu (`sim/rf_environment.py`)
-Klasik simülasyonların aksine, sistemimiz **Frequency Hopping (Frekans Atlamalı)** ve **Atmospheric Fading (Genlik Titreşimi)** etkilerini modeller. 
-- **Matematiksel Model:** Sinyaller, Gaussian dağılımı üzerine binmiş rastgele Jitter ve termal gürültü ile spektruma enjekte edilir.
-- **Hızlı Frekans Atlama:** LPI (Düşük Yakalanma Olasılığı) radarlarını taklit eden anlık frekans değişimleri simüle edilir.
+### 1. 🌊 Dinamik RF Ortam Simülasyonu (`sim/rf_environment.py`)
+Sistem sadece statik spektrum verisi üretmekle kalmaz, modern LPI (Düşük Yakalanma Olasılığı) taktiklerini de simüle eder:
+- **Frequency Hopping (Frekans Atlama):** Düşman hedeflerin izlenmesini zorlaştırmak için hedefler spektrum üzerinde anlık rastgele frekans değişimleri (hop) yaparlar.
+- **Atmospheric Fading (Genlik Titreşimi):** Sinyal genliklerine zaman ve faz tabanlı sinüsoidal (Jitter) bozulumlar uygulanarak multipath (çoklu yol) etkileri simüle edilir.
 
-### 2. 🧠 Bilişsel Karar Mekanizması & Look-Through (`modules/optimizer/`)
-Elektronik Taarruz (ET) esnasında spektrumu körleşmeden takip edebilmek için **"Look-Through"** tekniği kullanılır.
-- **Döngü Mantığı:** Sistem $T_{jam}$ süresi boyunca hedefe karıştırma uygular, ardından mikro-saniyeler mertebesinde ($T_{look}$) karıştırmayı durdurup hedefteki değişiklikleri (frekans değişimi, kapanma vb.) analiz eder.
-- **Optimizasyon:** Bu süreç, `SmartOptimizer` sınıfı tarafından zaman tabanlı bir otonom döngü ile yönetilir.
+### 2. 🧠 Q-Learning Tabanlı Look-Through Optimizasyonu (`modules/optimizer/`)
+Sistem karıştırma (Jamming) yaparken "Körleşme" (kendi sinyalimizden dolayı hedefin görülmemesi) sorununu çözmek için Look-Through (Ara Bakış) uygular. 
+- **RL Ajanı (Q-Learning):** Sistem, uyguladığı taarruzun hedefin spektrumdaki sayısını veya gücünü azaltıp azaltmadığını ölçer. Hedef kaybedilirse veya bastırılırsa yapay zekaya **Pozitif Ödül (+10)**, boş spektruma taarruz edilirse **Negatif Ceza (-5)** verilir. 
+- **Otonom Adaptasyon:** Bu sayede sistem, $T_{jam}$ (Karıştırma) ve $T_{look}$ (Dinleme) sürelerini dinamik olarak öğrenme eğilimindedir.
 
-### 3. 🎯 Sinyal Analiz ve Konum Belirleme (`modules/`)
-- **Waterfall Detector:** Bilgisayarlı görü (CV) teknikleri ile spektrogram üzerindeki anomalileri (sinyalleri) tespit eder.
-- **AI Classifier:** CNN (Convolutional Neural Networks) mimarisi kullanılarak RF imzalarından sınıflandırma yapar.
-- **Direction Finder:** TDOA (Time Difference of Arrival) ve Faz Farkı algoritmaları ile hedefin geliş açısını (AoA) matematiksel olarak kestirir.
+### 3. 🎯 Sezgisel Analiz ve TDOA Yön Kestirimi (`modules/`)
+- **Heuristic Classifier:** Klasik ezberlerin yerine sinyalin **Bant Genişliği (BW)** ve **Sinyal-Gürültü Oranına (SNR)** bakılarak sahte bir karar ağacı (Decision Tree mock) oluşturulur. Geniş bantlı güçlü sinyaller `16QAM`, dar bantlılar `AM/BPSK` olarak etiketlenir.
+- **TDOA (AoA) Radar Algoritması:** Sinyalin merkez frekans vektörleri üzerinden, mikrofon dizilimi (Antenna Array) faz farkı/varış zamanı farkı benzetimi yapılarak sinyalin geliş açısı (0-360 derece) kesinliğe yakın, ancak termal gürültülü (Gaussian Noise) şekilde hesaplanır.
 
-### 4. 📊 Komuta Kontrol Arayüzü (`ui/`)
-Operatöre taktiksel farkındalık sağlamak amacıyla geliştirilen dashboard:
-- **Real-Time Streaming:** Flask-SocketIO üzerinden backend verileri 100ms gecikme ile arayüze basılır.
-- **Dynamic Heatmap:** HTML5 Canvas API ile piksel bazlı güç yoğunluğu haritası oluşturulur.
-- **Jamming Feedback:** Sistem karıştırma durumuna geçtiğinde, spektrum üzerindeki yapay gürültü girişi görsel olarak simüle edilir.
-
----
-
-## 🛠️ Kurulum ve Kullanım
-
-### Gereksinimler
-- Python 3.10+
-- Flask, Flask-SocketIO, Eventlet, NumPy, SciPy
-
-### Çalıştırma
-1. Bağımlılıkları kurun: `pip install -r requirements.txt`
-2. Ana sunucuyu başlatın: `python main.py`
-3. Tarayıcıda açın: `http://localhost:5000`
+### 4. 📊 Siber-Komuta (Deep-Tech) Arayüzü (`ui/`)
+Operatöre nihai taktiksel farkındalık sağlayan, Chart.js ve HTML5 Canvas destekli WebSocket arayüzü:
+- **Real-Time Waterfall:** Saniyede 10 kare (100ms) hızında güncellenen piksel bazlı RF güç yoğunluğu haritası.
+- **TDOA Polar Radar:** Geliş açılarını (AoA) 8 yönlü (N, NE, E vb.) bir gül diyagramında güce (SNR) orantılı olarak çizen interaktif savaş radarı.
+- **Q-Learning Reward Grafiği:** Karıştırma ajanının anlık taarruz başarısını çizen veri grafiği.
+- **Tasarım Dili:** TRL-8 (Teknoloji Hazırlık Seviyesi) standartlarına uygun siber-punk, neon tarama çizgili (scan-line) karanlık komuta merkezi estetiği.
 
 ---
 
-## 🚀 Gelecek Vizyonu
-Bu proje, sadece bir simülasyon değil; ilerleyen aşamalarda **GNU Radio** ve **UHD** kütüphaneleri üzerinden gerçek USRP/HackRF donanımlarına entegre edilecek bir iskelettir. Nihai hedef, sahada otonom kararlar verebilen bir "Yapay Zeka EH Subayı" oluşturmaktır.
+## 🛠️ Kurulum, Gereksinimler ve Çalıştırma
+
+### Bağımlılıklar
+Proje, yoğun veri işleme (DSP) ve canlı veri akışı için aşağıdaki kütüphaneleri kullanır:
+- `numpy`, `scipy`, `matplotlib` (Matematik ve Sinyal İşleme)
+- `flask`, `flask-socketio`, `eventlet` (Asenkron Web Sunucusu)
+- `opencv-python`, `torch` (Gelecek Vizyonu / Görüntü İşleme ve ML)
+
+### Hızlı Kurulum
+Tüm gereksinimleri kurmak ve sistemi başlatmak için terminalinizde aşağıdaki adımları sırasıyla uygulayın:
+
+```bash
+# 1. Gerekli kütüphaneleri indirin
+pip install -r requirements.txt eventlet
+
+# 2. Ana sistemi (Backend + UI) başlatın
+python main.py
+```
+
+Sistem terminalde `Starting Otonom-EH Dashboard at http://localhost:5000` mesajı verdiğinde tarayıcınızdan komuta arayüzüne giriş yapabilirsiniz.
+
+---
+
+## 🚀 Gelecek Vizyonu (TRL-9 ve Üzeri)
+Mevcut v2.0 sürümü bir "Dijital İkiz" (Digital Twin) ve karar-destek simülasyonudur. Projenin nihai hedefi, **GNU Radio** veya **UHD (USRP Hardware Driver)** arayüzleri üzerinden gerçek HackRF/USRP analog radyolarına bağlanıp gerçek zamanlı spektrumda "Otonom Yapay Zeka EH Subayı" olarak sahada bizzat görev almasıdır.
