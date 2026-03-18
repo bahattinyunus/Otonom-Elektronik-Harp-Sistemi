@@ -5,14 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Otonom-EH | Bilişsel Elektronik Harp Dashboard</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root {
-            --bg-color: #0b0e14;
-            --panel-bg: #151921;
+            --bg-color: #07090e;
+            --panel-bg: rgba(21, 25, 33, 0.85);
             --accent: #00f2ff;
             --text: #e0e0e0;
             --hazard: #ff3e3e;
             --success: #00ff88;
+            --border: rgba(0, 242, 255, 0.2);
         }
 
         body {
@@ -24,16 +26,18 @@
             display: flex;
             flex-direction: column;
             height: 100vh;
+            background: radial-gradient(circle at center, #0f131c 0%, #07090e 100%);
         }
 
         header {
             padding: 1rem 2rem;
-            background: rgba(21, 25, 33, 0.8);
-            border-bottom: 1px solid rgba(0, 242, 255, 0.2);
+            background: var(--panel-bg);
+            border-bottom: 1px solid var(--border);
             backdrop-filter: blur(10px);
             display: flex;
             justify-content: space-between;
             align-items: center;
+            box-shadow: 0 0 20px rgba(0, 242, 255, 0.1);
         }
 
         .title-group h1 {
@@ -42,31 +46,33 @@
             letter-spacing: 2px;
             color: var(--accent);
             text-transform: uppercase;
+            text-shadow: 0 0 10px rgba(0, 242, 255, 0.5);
         }
 
         .title-group p {
             margin: 0;
-            font-size: 0.7rem;
-            opacity: 0.6;
+            font-size: 0.75rem;
+            opacity: 0.7;
         }
 
         main {
             flex: 1;
             display: grid;
-            grid-template-columns: 1fr 350px;
-            gap: 1rem;
-            padding: 1rem;
-            background: radial-gradient(circle at center, #1a1f2b 0%, #0b0e14 100%);
+            grid-template-columns: 1fr 400px;
+            gap: 1.5rem;
+            padding: 1.5rem;
+            height: calc(100vh - 100px);
         }
 
         #waterfall-container {
             position: relative;
             background: var(--panel-bg);
-            border: 1px solid rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border);
             border-radius: 8px;
             overflow: hidden;
             display: flex;
             flex-direction: column;
+            box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.8);
         }
 
         #waterfall-canvas {
@@ -78,8 +84,13 @@
         .side-panel {
             display: flex;
             flex-direction: column;
-            gap: 1rem;
+            gap: 1.5rem;
+            overflow-y: auto;
+            padding-right: 5px;
         }
+
+        .side-panel::-webkit-scrollbar { width: 5px; }
+        .side-panel::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 5px; }
 
         .panel {
             background: var(--panel-bg);
@@ -87,16 +98,21 @@
             padding: 1rem;
             border-left: 3px solid var(--accent);
             box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+            backdrop-filter: blur(5px);
+            position: relative;
+            overflow: hidden;
         }
 
         .panel-title {
-            font-size: 0.8rem;
+            font-size: 0.85rem;
             font-weight: bold;
             text-transform: uppercase;
-            margin-bottom: 0.5rem;
-            opacity: 0.7;
+            margin-bottom: 0.75rem;
+            color: var(--accent);
             display: flex;
             justify-content: space-between;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            padding-bottom: 0.5rem;
         }
 
         #signal-list {
@@ -104,6 +120,8 @@
             padding: 0;
             margin: 0;
             font-size: 0.85rem;
+            max-height: 150px;
+            overflow-y: auto;
         }
 
         .signal-item {
@@ -111,31 +129,42 @@
             border-bottom: 1px solid rgba(255, 255, 255, 0.05);
             display: grid;
             grid-template-columns: 1fr 1fr;
-            transition: background 0.3s;
+            transition: all 0.3s;
         }
 
         .signal-item:hover {
-            background: rgba(0, 242, 255, 0.05);
+            background: rgba(0, 242, 255, 0.1);
+            padding-left: 10px;
         }
 
         .status-badge {
-            background: rgba(0, 255, 136, 0.1);
+            background: rgba(0, 255, 136, 0.15);
             color: var(--success);
-            padding: 2px 8px;
+            padding: 4px 12px;
             border-radius: 4px;
-            font-size: 0.7rem;
+            font-size: 0.8rem;
+            font-weight: bold;
+            border: 1px solid var(--success);
+            box-shadow: 0 0 10px rgba(0, 255, 136, 0.2);
         }
 
         .system-logs {
             font-family: 'Courier New', Courier, monospace;
-            font-size: 0.7rem;
-            height: 150px;
+            font-size: 0.75rem;
+            height: 120px;
             overflow-y: auto;
-            color: rgba(255, 255, 255, 0.5);
+            color: rgba(255, 255, 255, 0.6);
         }
 
-        .log-entry { margin-bottom: 2px; }
+        .log-entry { margin-bottom: 4px; border-left: 2px solid rgba(255,255,255,0.2); padding-left: 5px; }
         .log-entry span { color: var(--accent); }
+
+        .chart-container {
+            position: relative;
+            height: 180px;
+            width: 100%;
+            margin-top: 10px;
+        }
 
         /* Scanning Animation */
         .scan-line {
@@ -145,8 +174,8 @@
             width: 100%;
             height: 2px;
             background: var(--accent);
-            box-shadow: 0 0 15px var(--accent);
-            opacity: 0.5;
+            box-shadow: 0 0 20px var(--accent), 0 0 40px var(--accent);
+            opacity: 0.7;
             animation: scan 4s linear infinite;
             z-index: 10;
         }
@@ -155,13 +184,19 @@
             0% { top: 0; }
             100% { top: 100%; }
         }
+        
+        #ea-status-text {
+            font-size: 1.3rem; 
+            font-weight: bold; 
+            transition: color 0.3s;
+        }
     </style>
 </head>
 <body>
     <header>
         <div class="title-group">
-            <h1>Otonom-EH Suite v1.0</h1>
-            <p>Cognitive Electronic Warfare Infrastructure | Simulation Mode: ACTIVE</p>
+            <h1>Otonom-EH Suite v2.0</h1>
+            <p>Cognitive Electronic Warfare Infrastructure | Q-Learning ACTIVE</p>
         </div>
         <div class="status-badge">SDR STREAM: ONLINE</div>
     </header>
@@ -173,23 +208,37 @@
         </div>
 
         <div class="side-panel">
+            <!-- ET Status & Q-Learning -->
+            <div class="panel">
+                <div class="panel-title">BİLİŞSEL ET DURUMU (Q-LEARNING)</div>
+                <div id="ea-status-text" style="color: var(--success)">AĞ ARAMASI...</div>
+                <div style="display: flex; justify-content: space-between; margin-top: 10px; font-size: 0.8rem; opacity: 0.8;">
+                    <span>Aktif Hedef: <strong id="target-count">0</strong></span>
+                    <span>Toplam Ödül: <strong id="total-reward" style="color: var(--accent)">0</strong></span>
+                </div>
+                <!-- Reward Chart -->
+                <div class="chart-container" style="height: 100px;">
+                    <canvas id="rewardChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Signal Detection & DF -->
             <div class="panel">
                 <div class="panel-title">
-                    <span>TESPİT EDİLEN SİNYALLER</span>
+                    <span>YON BULUCU (TDOA) & TESPİT</span>
                     <span id="sig-count">0</span>
                 </div>
-                <div id="signal-list"></div>
+                <!-- Radar Chart for AoA -->
+                <div class="chart-container" style="height: 150px;">
+                    <canvas id="radarChart"></canvas>
+                </div>
+                <div id="signal-list" style="margin-top: 10px;"></div>
             </div>
 
-            <div class="panel" style="flex:1">
+            <!-- Logs -->
+            <div class="panel">
                 <div class="panel-title">SİSTEM LOGLARI</div>
                 <div class="system-logs" id="logs"></div>
-            </div>
-
-            <div class="panel">
-                <div class="panel-title">ET DURUMU (KARŞI TEDBİR)</div>
-                <div id="ea-status-text" style="font-size: 1.2rem; font-weight: bold; color: var(--hazard)">LOOK-THROUGH PASİF</div>
-                <p style="font-size: 0.7rem; opacity: 0.5;">AI-Reinforcement Learning Modülü bekleniyor...</p>
             </div>
         </div>
     </main>
@@ -201,56 +250,161 @@
         const signalList = document.getElementById('signal-list');
         const logs = document.getElementById('logs');
         const sigCount = document.getElementById('sig-count');
+        const eaStatusText = document.getElementById('ea-status-text');
+        const targetCountEl = document.getElementById('target-count');
+        const totalRewardEl = document.getElementById('total-reward');
 
-        // Waterfall state
+        // Waterfall setup
         let fftSize = 1024;
         canvas.width = fftSize;
         canvas.height = 1000;
         let imgData = ctx.createImageData(fftSize, 1);
 
+        // Chart.js Setup: Reward Line Chart
+        const rewardCtx = document.getElementById('rewardChart').getContext('2d');
+        const rewardChart = new Chart(rewardCtx, {
+            type: 'line',
+            data: {
+                labels: Array(20).fill(''),
+                datasets: [{
+                    label: 'RL Reward',
+                    data: Array(20).fill(0),
+                    borderColor: '#00f2ff',
+                    backgroundColor: 'rgba(0, 242, 255, 0.1)',
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.4,
+                    pointRadius: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { display: false },
+                    y: { 
+                        display: true, 
+                        grid: { color: 'rgba(255,255,255,0.05)' },
+                        ticks: { color: 'rgba(255,255,255,0.5)', font: { size: 10 } }
+                    }
+                },
+                animation: { duration: 0 }
+            }
+        });
+
+        // Chart.js Setup: Radar (AoA) Chart
+        const radarCtx = document.getElementById('radarChart').getContext('2d');
+        const radarChart = new Chart(radarCtx, {
+            type: 'radar',
+            data: {
+                labels: ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'],
+                datasets: [{
+                    label: 'Sinyal Yoğunluğu',
+                    data: [0,0,0,0,0,0,0,0],
+                    backgroundColor: 'rgba(255, 62, 62, 0.4)',
+                    borderColor: '#ff3e3e',
+                    pointBackgroundColor: '#fff',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    r: {
+                        angleLines: { color: 'rgba(255, 255, 255, 0.1)' },
+                        grid: { color: 'rgba(0, 242, 255, 0.2)' },
+                        pointLabels: { color: '#00f2ff', font: { size: 10 } },
+                        ticks: { display: false, max: 100 }
+                    }
+                },
+                animation: { duration: 200 }
+            }
+        });
+
         socket.on('new_spectrum_data', (data) => {
             // 1. Draw Waterfall row
             const row = data.waterfall;
             for (let i = 0; i < row.length; i++) {
-                // Map dBm values to color (-100 to -20 range)
+                // Enhancing color mapping for cyber look (Blue/Cyan/White)
                 const val = (row[i] + 100) * 2.55; 
-                imgData.data[i * 4] = val > 150 ? 255 : val * 0.5; // R
-                imgData.data[i * 4 + 1] = val; // G
-                imgData.data[i * 4 + 2] = 255 - val; // B
-                imgData.data[i * 4 + 3] = 255; // A
+                if (val > 180) {
+                    // High intensity (White/Cyan)
+                    imgData.data[i * 4] = 200; 
+                    imgData.data[i * 4 + 1] = 255; 
+                    imgData.data[i * 4 + 2] = 255; 
+                } else if (val > 100) {
+                    // Medium intensity (Cyan/Blue)
+                    imgData.data[i * 4] = 0; 
+                    imgData.data[i * 4 + 1] = val + 50; 
+                    imgData.data[i * 4 + 2] = 255; 
+                } else {
+                    // Noise (Dark blue)
+                    imgData.data[i * 4] = 0; 
+                    imgData.data[i * 4 + 1] = 10; 
+                    imgData.data[i * 4 + 2] = val * 0.8; 
+                }
+                imgData.data[i * 4 + 3] = 255;
             }
             
-            // Shift canvas down and draw new row at top
+            ctx.globalCompositeOperation = "copy";
             ctx.drawImage(canvas, 0, 0, fftSize, canvas.height - 1, 0, 1, fftSize, canvas.height - 1);
+            ctx.globalCompositeOperation = "source-over";
             ctx.putImageData(imgData, 0, 0);
 
-            // 2. Update Signal List
+            // 2. Update EW Status & Reward
+            const ea = data.ea_status;
+            eaStatusText.innerText = ea.status.toUpperCase();
+            eaStatusText.style.color = ea.is_jamming ? 'var(--hazard)' : 'var(--success)';
+            targetCountEl.innerText = ea.target_count;
+            totalRewardEl.innerText = ea.reward;
+
+            // Update Reward Chart
+            const rData = rewardChart.data.datasets[0].data;
+            rData.shift();
+            rData.push(ea.reward);
+            rewardChart.update();
+
+            // 3. Update Signal List & Radar
             sigCount.innerText = data.signals.length;
             signalList.innerHTML = '';
+            
+            // Reset radar data
+            let radarData = [0,0,0,0,0,0,0,0];
+
             data.signals.forEach(sig => {
+                // UI List
                 const item = document.createElement('div');
                 item.className = 'signal-item';
                 item.innerHTML = `
-                    <div><strong>${sig.type}</strong></div>
-                    <div style="text-align:right">${sig.snr} dB SNR</div>
-                    <div style="font-size:0.7rem; opacity:0.6">Idx: ${sig.freq_idx}</div>
-                    <div style="font-size:0.7rem; text-align:right; color: #00f2ff">AoA: ${sig.aoa}°</div>
+                    <div><strong style="color:var(--accent)">${sig.type}</strong></div>
+                    <div style="text-align:right">${sig.snr} dB</div>
+                    <div style="font-size:0.7rem; opacity:0.6">Freq Idx: ${sig.freq_idx}</div>
+                    <div style="font-size:0.75rem; text-align:right;">AoA: ${sig.aoa.toFixed(1)}°</div>
                 `;
                 signalList.appendChild(item);
+
+                // Radar Map (Map 0-360 to 8 bins)
+                const bin = Math.floor(((sig.aoa + 22.5) % 360) / 45);
+                radarData[bin] += sig.snr; // Weight by SNR
             });
 
-            // 3. Add Logs
-            if (data.signals.length > 0 && Math.random() > 0.8) {
+            // Normalize radar data visually
+            const maxRadar = Math.max(...radarData, 1);
+            radarChart.data.datasets[0].data = radarData.map(v => (v / maxRadar) * 100);
+            radarChart.update();
+
+            // 4. Add Logs
+            if (data.signals.length > 0 && Math.random() > 0.85) {
                 const log = document.createElement('div');
                 log.className = 'log-entry';
-                log.innerHTML = `<span>[${new Date().toLocaleTimeString()}]</span> ${data.signals[0].type} sinyali tespit edildi. Konum güncellendi.`;
+                let action = ea.is_jamming ? 'TAARRUZ BAŞLATILDI' : 'TDOA KESTİRİMİ YAPILDI';
+                log.innerHTML = `<span>[${new Date().toLocaleTimeString()}]</span> ${data.signals[0].type} tespit. ${action}`;
                 logs.prepend(log);
+                if (logs.children.length > 30) logs.removeChild(logs.lastChild);
             }
-        });
-
-        // Handle window resize
-        window.addEventListener('resize', () => {
-            // Keep actual canvas resolution, let CSS scale it
         });
     </script>
 </body>

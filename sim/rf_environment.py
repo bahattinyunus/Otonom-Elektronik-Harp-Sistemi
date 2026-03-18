@@ -25,12 +25,22 @@ class RFEnvironment:
             
         # Apply active signals to PSD
         for sig in self.active_signals[:]:
+            # Frequency Hopping Logic
+            if sig.get('hopping', False) and np.random.rand() > 0.8:
+                # Hop to a new frequency within +/- 40% of fs
+                hop_offset = (np.random.rand() - 0.5) * (self.fs * 0.8)
+                sig['freq'] = self.center_freq + hop_offset
+
+            # Atmospheric Fading (Amplitude Jitter)
+            fading_factor = 1.0 + 0.2 * np.sin(time.time() * 10.0 + sig.get('phase_offset', 0))
+            current_amp = sig['amplitude'] * fading_factor
+
             # Simple gaussian-like signal peak
             freq_idx = int((sig['freq'] - (self.center_freq - self.fs/2)) / (self.fs / self.fft_size))
             if 0 <= freq_idx < self.fft_size:
                 width = sig['bw'] / (self.fs / self.fft_size)
                 x = np.arange(self.fft_size)
-                peak = sig['amplitude'] * np.exp(-((x - freq_idx)**2) / (2 * (width/2)**2))
+                peak = current_amp * np.exp(-((x - freq_idx)**2) / (2 * (width/2)**2))
                 psd = np.maximum(psd, self.noise_floor + peak)
                 
             # Signal duration decay
@@ -49,7 +59,9 @@ class RFEnvironment:
             "bw": np.random.uniform(10e3, 100e3),
             "amplitude": np.random.uniform(20, 60),
             "type": np.random.choice(mod_types),
-            "duration": np.random.uniform(1, 5)
+            "duration": np.random.uniform(2, 8),
+            "hopping": np.random.rand() > 0.7,
+            "phase_offset": np.random.uniform(0, 2 * np.pi)
         })
 
 if __name__ == "__main__":
