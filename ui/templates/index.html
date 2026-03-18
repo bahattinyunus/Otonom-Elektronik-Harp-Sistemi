@@ -15,6 +15,7 @@
             --hazard: #ff3e3e;
             --success: #00ff88;
             --border: rgba(0, 242, 255, 0.2);
+            --manual: #ff0055;
         }
 
         body {
@@ -101,6 +102,7 @@
             backdrop-filter: blur(5px);
             position: relative;
             overflow: hidden;
+            flex-shrink: 0;
         }
 
         .panel-title {
@@ -151,7 +153,7 @@
         .system-logs {
             font-family: 'Courier New', Courier, monospace;
             font-size: 0.75rem;
-            height: 120px;
+            height: 100px;
             overflow-y: auto;
             color: rgba(255, 255, 255, 0.6);
         }
@@ -161,7 +163,7 @@
 
         .chart-container {
             position: relative;
-            height: 180px;
+            height: 150px;
             width: 100%;
             margin-top: 10px;
         }
@@ -186,17 +188,34 @@
         }
         
         #ea-status-text {
-            font-size: 1.3rem; 
+            font-size: 1.1rem; 
             font-weight: bold; 
             transition: color 0.3s;
+        }
+        
+        /* Operator Controls */
+        input[type=range] {
+            -webkit-appearance: none;
+            background: rgba(255,255,255,0.1);
+            height: 4px;
+            border-radius: 2px;
+            outline: none;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 15px;
+            height: 15px;
+            background: var(--accent);
+            border-radius: 50%;
+            cursor: pointer;
         }
     </style>
 </head>
 <body>
     <header>
         <div class="title-group">
-            <h1>Otonom-EH Suite v2.0</h1>
-            <p>Cognitive Electronic Warfare Infrastructure | Q-Learning ACTIVE</p>
+            <h1>Otonom-EH Suite v3.0</h1>
+            <p>Cognitive Electronic Warfare Infrastructure | PyTorch/OpenCV ACTIVE</p>
         </div>
         <div class="status-badge">SDR STREAM: ONLINE</div>
     </header>
@@ -208,16 +227,48 @@
         </div>
 
         <div class="side-panel">
+            
+            <!-- Operator Control Deck -->
+            <div class="panel" style="border-left-color: var(--manual);">
+                <div class="panel-title" style="color: var(--manual);">OPERATÖR KOMUTA MERKEZİ</div>
+                
+                <div style="margin-bottom: 10px;">
+                    <label style="font-size: 0.8rem; display: block; margin-bottom: 5px;">SİSTEM MODU</label>
+                    <div style="display: flex; gap: 10px;">
+                        <button id="btn-auto" onclick="setMode('AUTO')" style="flex:1; padding: 5px; background: var(--accent); color: #000; border: none; font-weight: bold; cursor: pointer; border-radius: 3px; font-family: inherit;">OTONOM (AI)</button>
+                        <button id="btn-manual" onclick="setMode('MANUAL')" style="flex:1; padding: 5px; background: transparent; color: #fff; border: 1px solid #555; cursor: pointer; border-radius: 3px; font-family: inherit;">MANUEL</button>
+                    </div>
+                </div>
+
+                <div style="margin-bottom: 10px;">
+                    <label style="font-size: 0.8rem; display: flex; justify-content: space-between;">
+                        <span>MANUEL KARIŞTIRMA</span>
+                        <span id="jam-status" style="color: #555;">KAPALI</span>
+                    </label>
+                    <button id="btn-jam" onmousedown="setJam(true)" onmouseup="setJam(false)" onmouseleave="setJam(false)" style="width: 100%; padding: 10px; background: #333; color: #777; border: 1px solid #555; font-weight: bold; cursor: not-allowed; border-radius: 3px; margin-top: 5px; font-family: inherit; font-size: 0.9rem;" disabled>
+                        TAARRUZ (BASILI TUT)
+                    </button>
+                </div>
+
+                <div>
+                    <label style="font-size: 0.8rem; display: flex; justify-content: space-between;">
+                        <span>GÜRÜLTÜ SEVİYESİ (NOISE)</span>
+                        <span id="noise-val">-100 dB</span>
+                    </label>
+                    <input type="range" id="noise-slider" min="-120" max="-40" value="-100" step="1" style="width: 100%; margin-top: 5px;" oninput="setNoise(this.value)">
+                </div>
+            </div>
+
             <!-- ET Status & Q-Learning -->
             <div class="panel">
-                <div class="panel-title">BİLİŞSEL ET DURUMU (Q-LEARNING)</div>
+                <div class="panel-title">BİLİŞSEL ET DURUMU</div>
                 <div id="ea-status-text" style="color: var(--success)">AĞ ARAMASI...</div>
                 <div style="display: flex; justify-content: space-between; margin-top: 10px; font-size: 0.8rem; opacity: 0.8;">
-                    <span>Aktif Hedef: <strong id="target-count">0</strong></span>
-                    <span>Toplam Ödül: <strong id="total-reward" style="color: var(--accent)">0</strong></span>
+                    <span>Hedef: <strong id="target-count">0</strong></span>
+                    <span>Q-Ödül: <strong id="total-reward" style="color: var(--accent)">0</strong></span>
                 </div>
                 <!-- Reward Chart -->
-                <div class="chart-container" style="height: 100px;">
+                <div class="chart-container" style="height: 80px;">
                     <canvas id="rewardChart"></canvas>
                 </div>
             </div>
@@ -225,11 +276,11 @@
             <!-- Signal Detection & DF -->
             <div class="panel">
                 <div class="panel-title">
-                    <span>YON BULUCU (TDOA) & TESPİT</span>
+                    <span>YÖN BULUCU & TESPİT</span>
                     <span id="sig-count">0</span>
                 </div>
                 <!-- Radar Chart for AoA -->
-                <div class="chart-container" style="height: 150px;">
+                <div class="chart-container" style="height: 120px;">
                     <canvas id="radarChart"></canvas>
                 </div>
                 <div id="signal-list" style="margin-top: 10px;"></div>
@@ -237,7 +288,7 @@
 
             <!-- Logs -->
             <div class="panel">
-                <div class="panel-title">SİSTEM LOGLARI</div>
+                <div class="panel-title">SİSTEM LOGLARI (DB)</div>
                 <div class="system-logs" id="logs"></div>
             </div>
         </div>
@@ -253,6 +304,61 @@
         const eaStatusText = document.getElementById('ea-status-text');
         const targetCountEl = document.getElementById('target-count');
         const totalRewardEl = document.getElementById('total-reward');
+
+        // UI Controls logic
+        let currentMode = 'AUTO';
+        function setMode(mode) {
+            currentMode = mode;
+            document.getElementById('btn-auto').style.background = mode === 'AUTO' ? 'var(--accent)' : 'transparent';
+            document.getElementById('btn-auto').style.color = mode === 'AUTO' ? '#000' : '#fff';
+            document.getElementById('btn-auto').style.border = mode === 'AUTO' ? 'none' : '1px solid #555';
+            
+            document.getElementById('btn-manual').style.background = mode === 'MANUAL' ? 'var(--manual)' : 'transparent';
+            document.getElementById('btn-manual').style.color = mode === 'MANUAL' ? '#fff' : '#fff';
+            document.getElementById('btn-manual').style.border = mode === 'MANUAL' ? 'none' : '1px solid #555';
+            
+            const jamBtn = document.getElementById('btn-jam');
+            if(mode === 'MANUAL') {
+                jamBtn.disabled = false;
+                jamBtn.style.cursor = 'pointer';
+                jamBtn.style.background = 'transparent';
+                jamBtn.style.color = 'var(--manual)';
+                jamBtn.style.borderColor = 'var(--manual)';
+            } else {
+                jamBtn.disabled = true;
+                jamBtn.style.cursor = 'not-allowed';
+                jamBtn.style.background = '#333';
+                jamBtn.style.color = '#777';
+                jamBtn.style.borderColor = '#555';
+            }
+            
+            socket.emit('set_mode', { mode: mode });
+        }
+
+        function setJam(isJamming) {
+            if (currentMode !== 'MANUAL') return;
+            const jamBtn = document.getElementById('btn-jam');
+            const jamStatus = document.getElementById('jam-status');
+            
+            if(isJamming) {
+                jamBtn.style.background = 'var(--manual)';
+                jamBtn.style.color = '#fff';
+                jamStatus.innerText = 'AKTİF';
+                jamStatus.style.color = 'var(--manual)';
+            } else {
+                jamBtn.style.background = 'transparent';
+                jamBtn.style.color = 'var(--manual)';
+                jamStatus.innerText = 'KAPALI';
+                jamStatus.style.color = '#555';
+            }
+            socket.emit('set_manual_jam', { is_jamming: isJamming });
+        }
+
+        function setNoise(val) {
+            document.getElementById('noise-val').innerText = `${val} dB`;
+            socket.emit('set_noise_floor', { noise: val });
+        }
+
 
         // Waterfall setup
         let fftSize = 1024;
@@ -331,17 +437,14 @@
                 // Enhancing color mapping for cyber look (Blue/Cyan/White)
                 const val = (row[i] + 100) * 2.55; 
                 if (val > 180) {
-                    // High intensity (White/Cyan)
                     imgData.data[i * 4] = 200; 
                     imgData.data[i * 4 + 1] = 255; 
                     imgData.data[i * 4 + 2] = 255; 
                 } else if (val > 100) {
-                    // Medium intensity (Cyan/Blue)
                     imgData.data[i * 4] = 0; 
                     imgData.data[i * 4 + 1] = val + 50; 
                     imgData.data[i * 4 + 2] = 255; 
                 } else {
-                    // Noise (Dark blue)
                     imgData.data[i * 4] = 0; 
                     imgData.data[i * 4 + 1] = 10; 
                     imgData.data[i * 4 + 2] = val * 0.8; 
@@ -357,7 +460,12 @@
             // 2. Update EW Status & Reward
             const ea = data.ea_status;
             eaStatusText.innerText = ea.status.toUpperCase();
-            eaStatusText.style.color = ea.is_jamming ? 'var(--hazard)' : 'var(--success)';
+            if(data.sys_mode === 'MANUAL') {
+                eaStatusText.style.color = ea.is_jamming ? 'var(--manual)' : '#555';
+            } else {
+                eaStatusText.style.color = ea.is_jamming ? 'var(--hazard)' : 'var(--success)';
+            }
+            
             targetCountEl.innerText = ea.target_count;
             totalRewardEl.innerText = ea.reward;
 
@@ -374,24 +482,23 @@
             // Reset radar data
             let radarData = [0,0,0,0,0,0,0,0];
 
+            let latestMod = "Gürültü";
             data.signals.forEach(sig => {
-                // UI List
                 const item = document.createElement('div');
                 item.className = 'signal-item';
                 item.innerHTML = `
                     <div><strong style="color:var(--accent)">${sig.type}</strong></div>
-                    <div style="text-align:right">${sig.snr} dB</div>
-                    <div style="font-size:0.7rem; opacity:0.6">Freq Idx: ${sig.freq_idx}</div>
+                    <div style="text-align:right">${sig.snr.toFixed(1)} dB</div>
+                    <div style="font-size:0.7rem; opacity:0.6">Idx: ${sig.freq_idx}</div>
                     <div style="font-size:0.75rem; text-align:right;">AoA: ${sig.aoa.toFixed(1)}°</div>
                 `;
                 signalList.appendChild(item);
 
-                // Radar Map (Map 0-360 to 8 bins)
                 const bin = Math.floor(((sig.aoa + 22.5) % 360) / 45);
-                radarData[bin] += sig.snr; // Weight by SNR
+                radarData[bin] += sig.snr;
+                latestMod = sig.type;
             });
 
-            // Normalize radar data visually
             const maxRadar = Math.max(...radarData, 1);
             radarChart.data.datasets[0].data = radarData.map(v => (v / maxRadar) * 100);
             radarChart.update();
@@ -400,8 +507,8 @@
             if (data.signals.length > 0 && Math.random() > 0.85) {
                 const log = document.createElement('div');
                 log.className = 'log-entry';
-                let action = ea.is_jamming ? 'TAARRUZ BAŞLATILDI' : 'TDOA KESTİRİMİ YAPILDI';
-                log.innerHTML = `<span>[${new Date().toLocaleTimeString()}]</span> ${data.signals[0].type} tespit. ${action}`;
+                let action = ea.is_jamming ? 'TAARRUZ/DB KAYDI' : 'TDOA KESTİRİMİ';
+                log.innerHTML = `<span>[${new Date().toLocaleTimeString()}]</span> ${latestMod} tespiti. ${action}`;
                 logs.prepend(log);
                 if (logs.children.length > 30) logs.removeChild(logs.lastChild);
             }

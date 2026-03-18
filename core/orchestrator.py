@@ -5,6 +5,7 @@ from modules.classifier.classifier import ModulationClassifier
 from modules.direction_finder.df_logic import DirectionFinder
 from modules.optimizer.et_optimizer import SmartOptimizer
 from core.config import NOISE_FLOOR
+from core.blackbox import MissionLogger
 
 class SystemOrchestrator:
     """Main brain of the system. Routes data between modules."""
@@ -15,6 +16,9 @@ class SystemOrchestrator:
         self.classifier = ModulationClassifier()
         self.df = DirectionFinder()
         self.optimizer = SmartOptimizer()
+        self.logger = MissionLogger("logs/mission_log.db")
+        self.mode = "AUTO"
+        self.manual_jam = False
         self.latest_results = {}
 
     def run_cycle(self):
@@ -36,14 +40,28 @@ class SystemOrchestrator:
                 "aoa": round(aoa, 2)
             })
             
-        # 4. AI Reinforcement Learning / Look-Through Logic
-        ea_status = self.optimizer.update_strategy(processed_signals)
+        # 4. AI Reinforcement Learning / Look-Through Logic or Manual Override
+        if self.mode == "AUTO":
+            ea_status = self.optimizer.update_strategy(processed_signals)
+        else:
+            ea_status = {
+                "is_jamming": self.manual_jam,
+                "status": "MANUAL - TAARRUZ (JAMMING)" if self.manual_jam else "MANUAL - STANDBY",
+                "target_count": len(processed_signals),
+                "reward": self.optimizer.total_reward, # Keep the last known reward UI
+                "latest_reward_delta": 0
+            }
+            
+        # 5. Log Events to Blackbox
+        self.logger.log_signals(processed_signals)
+        self.logger.log_action(ea_status)
             
         self.latest_results = {
             "waterfall": psd_frame,
             "signals": processed_signals,
             "ea_status": ea_status,
-            "timestamp": time.time()
+            "timestamp": time.time(),
+            "sys_mode": self.mode
         }
         return self.latest_results
 

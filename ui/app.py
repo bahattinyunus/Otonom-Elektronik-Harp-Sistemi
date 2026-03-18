@@ -13,6 +13,26 @@ orchestrator = SystemOrchestrator()
 def index():
     return render_template('index.html')
 
+@socketio.on('set_mode')
+def handle_set_mode(data):
+    mode = data.get('mode', 'AUTO')
+    orchestrator.mode = mode
+    print(f"System Mode Changed to: {mode}")
+
+@socketio.on('set_manual_jam')
+def handle_manual_jam(data):
+    if orchestrator.mode == 'MANUAL':
+        is_jam = data.get('is_jamming', False)
+        orchestrator.manual_jam = is_jam
+        print(f"Manual Jamming: {is_jam}")
+
+@socketio.on('set_noise_floor')
+def handle_noise_floor(data):
+    noise = float(data.get('noise', -100))
+    orchestrator.env.noise_floor = noise
+    print(f"Noise Floor Changed to: {noise} dB")
+
+
 def background_thread():
     """Continuously runs the EW cycle and broadcasts to UI."""
     print("Dashboard data stream started...")
