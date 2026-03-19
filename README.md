@@ -40,6 +40,11 @@ Projenin temel otonomi unsuru olan Q-Learning adaptasyonu, Elektronik Destek (ED
 - **Dinamik Ödül/Ceza (Reward System):** ET (Karıştırma) esnasında ajan (Agent), uyguladığı taarruz sonrası spektrumdaki hedef sayısında bir düşüş algılarsa $(+10)$ ödül puanı alır. Hedefin gücü düşmezse, yani hedefin frekans atlatarak kaçtığı tespit edilirse ajan enerji israfı nedeniyle $(-5)$ puanlık ceza ile cezalandırılır.
 - **Taarruz Kavraması:** Otonom ajan, zamanla hangi hedef profilinde ne kadar süre $T_{jam}$ (Karıştırma) ve $T_{look}$ (Dinleme) yapması gerektiğini öğrenerek "Optimum Duty Cycle" oranına yakınsar.
 
+### 4. Dinamik Hedef Takibi (Kalman Filter) ve RFI Parmak İzi
+Operasyon sahasındaki her bir emetör (emitter), sadece anlık AoA ve merkez frekansı ile değil, zaman içerisindeki hareket formasyonları ile **Track ID** verilerek takip edilir.
+- **Kalman Tracker:** Frekans atlaması yapan ve yön değiştiren hedeflerin izlerini (TRK-0001) koruyarak geçmiş durumlarını (State History) tahmin eder.
+- **RFI (Radio Frequency Fingerprint):** Donanımsal imperfeksiyonları (Phase Noise, Carrier Offset) modelleyerek iki farklı BPSK cihazı arasındaki elektriksel imza farkını (Hash Sig) çıkarır.
+
 ---
 
 ## 🧮 Alt Sistemler ve Taktik Destek Unsurları
@@ -60,6 +65,7 @@ Salt otonom bir yapay zeka yerine "Human-on-the-loop" (İnsan Denetiminde Kontro
 2.  **TDOA Polar Savaş Radarı (Chart.js):** Sinyallerin AoA dağılımlarını Kutupsal (Polar) Gülgoncası haritası üzerinde görselleştirir.
 3.  **Gerçek Zamanlı Q-Ödül Grafiği:** Ajanın o an uyguladığı karıştırma algoritmalarından sağladığı başarılı/başarısız geri bildirim döngüsünü zamana bağlı çizer.
 4.  **Operatör Override (Müdahale) Paneli:** Kullanıcı, tek bir tıklamayla Otonom Yapay Zekayı devreden çıkarıp MANUEL yetkiyi alabilir; karıştırma görevlerini ve çevresel RF spektrum gürültü eşiğini (Noise Floor) $(-120dB)$ ila $(-40dB)$ arasında anlık tahsis edebilir.
+5. **AAR Görev Raporu:** Her görevin ardından, "AAR RAPORUNU İNDİR" butonuyla tüm `Track_ID`, `RFI_Hash`, `AoA` logları CSV formatında anlık raporlanır.
 
 ---
 
@@ -75,7 +81,14 @@ pip install -r requirements.txt eventlet
 python main.py
 ```
 
+### 🐳 Docker ile Otonom Başlatma (Production-Ready)
+Sistem tüm bağımlılıklarıyla birlikte sanallaştırılmıştır. Kapsayıcıyı derleyip ayağa kaldırmak için:
+```bash
+docker-compose up --build -d
+```
+
 Sistem başlatıldığında `http://localhost:5000` adresinden TCP/WS tabanlı Komuta Kontrol Enstrüman Panelinize erişebilirsiniz.
+Ağ analizi tamamlandıktan sonra operatör arayüzünden Görev Sonu Raporunu (AAR CSV) tek tıkla çekebilirsiniz.
 
 ---
 

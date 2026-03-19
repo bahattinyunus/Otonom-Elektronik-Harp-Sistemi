@@ -250,6 +250,12 @@
                     </button>
                 </div>
 
+                <div style="margin-bottom: 15px;">
+                    <a href="/api/export_report" target="_blank" style="text-decoration: none;">
+                        <button style="width: 100%; padding: 8px; background: rgba(0,255,136,0.1); color: var(--success); border: 1px solid var(--success); cursor: pointer; border-radius: 3px; font-family: inherit; font-size: 0.8rem; font-weight: bold; margin-bottom: 5px;">AAR RAPORUNU İNDİR (CSV)</button>
+                    </a>
+                </div>
+
                 <div>
                     <label style="font-size: 0.8rem; display: flex; justify-content: space-between;">
                         <span>GÜRÜLTÜ SEVİYESİ (NOISE)</span>
@@ -487,9 +493,9 @@
                 const item = document.createElement('div');
                 item.className = 'signal-item';
                 item.innerHTML = `
-                    <div><strong style="color:var(--accent)">${sig.type}</strong></div>
+                    <div><strong style="color:var(--accent)">[${sig.track_id}] ${sig.type}</strong></div>
                     <div style="text-align:right">${sig.snr.toFixed(1)} dB</div>
-                    <div style="font-size:0.7rem; opacity:0.6">Idx: ${sig.freq_idx}</div>
+                    <div style="font-size:0.7rem; opacity:0.6">RFI: ${sig.rfi_hash}</div>
                     <div style="font-size:0.75rem; text-align:right;">AoA: ${sig.aoa.toFixed(1)}°</div>
                 `;
                 signalList.appendChild(item);

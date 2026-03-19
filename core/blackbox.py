@@ -23,7 +23,9 @@ class MissionLogger:
                     freq_idx INTEGER,
                     snr REAL,
                     type TEXT,
-                    aoa REAL
+                    aoa REAL,
+                    track_id TEXT,
+                    rfi_hash TEXT
                 )
             ''')
             cursor.execute('''
@@ -44,8 +46,8 @@ class MissionLogger:
             with sqlite3.connect(self.db_path) as conn:
                 cursor = conn.cursor()
                 cursor.executemany(
-                    "INSERT INTO signals (timestamp, freq_idx, snr, type, aoa) VALUES (?, ?, ?, ?, ?)",
-                    [(now, s['freq_idx'], s['snr'], s['type'], s['aoa']) for s in signals]
+                    "INSERT INTO signals (timestamp, freq_idx, snr, type, aoa, track_id, rfi_hash) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                    [(now, s['freq_idx'], s['snr'], s['type'], s['aoa'], s.get('track_id', 'N/A'), s.get('rfi_hash', 'N/A')) for s in signals]
                 )
                 conn.commit()
 

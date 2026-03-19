@@ -61,7 +61,9 @@ class RFEnvironment:
             "type": np.random.choice(mod_types),
             "duration": np.random.uniform(2, 8),
             "hopping": np.random.rand() > 0.7,
-            "phase_offset": np.random.uniform(0, 2 * np.pi)
+            "phase_offset": np.random.uniform(0, 2 * np.pi),
+            "phase_noise": np.random.uniform(0.01, 0.2), # HW Imperfection
+            "carrier_offset": np.random.uniform(-500, 500) # HW Imperfection
         })
 
 if __name__ == "__main__":

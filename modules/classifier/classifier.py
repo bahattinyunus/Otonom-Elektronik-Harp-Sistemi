@@ -52,3 +52,13 @@ class ModulationClassifier:
              mod_type = "AM"
              
         return mod_type
+
+    def extract_rfi_signature(self, phase_noise, carrier_offset):
+        """
+        Simulates RF Fingerprinting (RFI) by calculating a deterministic hash
+        from hardware imperfections like phase noise and carrier offset.
+        """
+        # Create a hexadecimal hash representation based on hardware limits
+        val = abs(phase_noise * 1000) + abs(carrier_offset)
+        rfi_hash = f"0x{(int(val * 12345) % 0xFFFFF):05X}"
+        return rfi_hash
