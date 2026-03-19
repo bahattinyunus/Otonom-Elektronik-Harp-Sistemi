@@ -7,17 +7,17 @@
 ![Status](https://img.shields.io/badge/TRL-8-success.svg)
 ![AI Level](https://img.shields.io/badge/Cognitive_AI-Deep_Learning_%26_RL-orange.svg)
 
-**Otonom Elektronik Harp Sistemi (Cognitive-EW-Suite)**, modern elektronik harp (EH) ve elektromanyetik spektrum operasyonlarında (EMSO) yapay zeka (AI) ve makine öğrenimi (ML) tekniklerini otonom karar mekanizmalarıyla birleştiren yeni nesil bir Bilişsel Elektronik Harp (Cognitive Electronic Warfare) platformudur.
+**Otonom Elektronik Harp Sistemi (Cognitive-EW-Suite)**, modern elektronik harp (EH) ve elektromanyetik spektrum operasyonlarında (EMSO) Derin Öğrenme (Deep Learning) ve Pekiştirmeli Öğrenme (Reinforcement Learning) metodolojilerini spektral analiz süreçlerine entegre eden otonom bir Bilişsel Elektronik Harp (Cognitive EW) platformudur.
 
-Bu platform, statik tehdit kütüphanelerine (Emitter Threat Library) dayalı klasik EH sistemlerinin aksine; spektral ortamdaki fiziksel değişimleri dinamik olarak algılayabilen, öğrenebilen ve adaptif taarruz/savunma örüntüleri üretebilen otonom bir mimari sunmaktadır.
+Sistem, Statik Tehdit Kütüphanelerine (Emitter Threat Library) dayalı klasik Karşı Tedbir (ECM) yaklaşımlarının aksine; stokastik spektral anomalileri dinamik olarak anlamlandırabilen, non-lineer hedef tespit-takip korelasyonu kurabilen ve OODA (Gözlem, Yönelim, Karar, Eylem) döngüsünün insan faktörü olmaksızın milisaniyeler içerisinde tamamlanmasını sağlayan otonom ajan (autonomous agent) mimarisine dayanmaktadır.
 
 ---
 
 ## 🏛️ Yönetici Özeti: Elektronik Harpte Yapay Zeka Paradigması
 
-Gelişen LPI (Low Probability of Intercept) radarları, yazılım tanımlı radyolar (SDR) ve bilişsel frekans atlamalı (Frequency Hopping) haberleşme sistemleri, lineer ve kural tabanlı (Rule-Based) karıştırma (Jamming) tekniklerini işlevsiz hale getirmiştir. Bu bağlamda, düşmanın spektrumdaki kaçış ve adaptasyon paternlerini gerçek zamanlı olarak çözümleyebilmek için **Yapay Zeka (AI)** tabanlı sistemler artık bir tercih değil, zorunluluktur.
+Gelişen LPI (Low Probability of Intercept) radarları, yazılım tanımlı radyolar (SDR) ve bilişsel frekans atlamalı (Frequency Hopping) haberleşme dalga şekilleri, eylemsiz, donanım-sabiti, kural tabanlı (Rule-Based) karıştırma (Jamming) ve aldatma (Spoofing) tekniklerini asimetrik harekat ortamında zafiyete uğratmıştır. Düşman elektronik harp aygıtlarının spektrum üzerindeki kaçış, gizlenme ve adaptasyon paternlerini kestirebilmek için deterministik algoritmalar çökmüş; varyans analizi ile beslenen **Yapay Zeka (AI)** tabanlı karar-destek ve komuta kontrol (C2) sistemleri operasyonel bir zorunluluk haline gelmiştir.
 
-Bu proje, bir EH platformunun OODA (Gözlem, Yönelim, Karar, Eylem) döngüsünün her bir aşamasına yapay zeka ve ileri bilgisayarlı görü (Computer Vision) entegre ederek reaksiyon süresini insan kapasitesinin ötesine ($<100ms$) taşımayı hedefler.
+Bu araştırma / prototip projesi, Elektronik Destek (ES) ile tespit edilen elektromanyetik vektörleri, Bilgisayarlı Görü (Computer Vision) ile spektral öznitelik haritalarına çevirmeyi, PyTorch Çok Katmanlı Algılayıcı (MLP) modülleriyle modülasyon tespiti yapmayı ve Markov Karar Süreçleri'ni (MDP) modelleyen Q-Learning ajanı vasıtasıyla Elektronik Taarruz (EA) "Look-Through" parametrelerini optimum efektif noktaya taşımayı, reaksiyon süresini $<100ms$ aralığına düşürerek hedefler.
 
 ---
 
@@ -40,10 +40,10 @@ Projenin temel otonomi unsuru olan Q-Learning adaptasyonu, Elektronik Destek (ED
 - **Dinamik Ödül/Ceza (Reward System):** ET (Karıştırma) esnasında ajan (Agent), uyguladığı taarruz sonrası spektrumdaki hedef sayısında bir düşüş algılarsa $(+10)$ ödül puanı alır. Hedefin gücü düşmezse, yani hedefin frekans atlatarak kaçtığı tespit edilirse ajan enerji israfı nedeniyle $(-5)$ puanlık ceza ile cezalandırılır.
 - **Taarruz Kavraması:** Otonom ajan, zamanla hangi hedef profilinde ne kadar süre $T_{jam}$ (Karıştırma) ve $T_{look}$ (Dinleme) yapması gerektiğini öğrenerek "Optimum Duty Cycle" oranına yakınsar.
 
-### 4. Dinamik Hedef Takibi (Kalman Filter) ve RFI Parmak İzi
-Operasyon sahasındaki her bir emetör (emitter), sadece anlık AoA ve merkez frekansı ile değil, zaman içerisindeki hareket formasyonları ile **Track ID** verilerek takip edilir.
-- **Kalman Tracker:** Frekans atlaması yapan ve yön değiştiren hedeflerin izlerini (TRK-0001) koruyarak geçmiş durumlarını (State History) tahmin eder.
-- **RFI (Radio Frequency Fingerprint):** Donanımsal imperfeksiyonları (Phase Noise, Carrier Offset) modelleyerek iki farklı BPSK cihazı arasındaki elektriksel imza farkını (Hash Sig) çıkarır.
+### 4. Non-Linear State Estimation (Kalman Filtresi) ve RFI Parmak İzi
+Tespit edilen elektromanyetik tehdit profilleri, anlık Geliş Açısı (AoA) spekülasyonlarından sıyrılıp, uzamsal bir takip algoritması ile korelasyona sokulur.
+- **Track-While-Scan (Kalman Tracker):** Spektral sıçrama ve kros-modülasyon uygulayan hedeflerin uzamsal-frekans (Spatial-Spectral) özniteliklerini izafi bir durum vektörü (State Vector / Track ID) içinde entegre eder ve hedef sürekliliğini teminat altına alır.
+- **Radio Frequency Fingerprinting (RFI):** Sinyal Üreticilerindeki donanımsal osilatör toleranslarının (Phase Noise, Phase Jitter, Carrier Offset) yarattığı benzersiz nano-akustik sapmaları işleyerek deterministik Kriptografik Karma (Hash Signature) üretir. Bu özellik PyTorch modülünü bypass ederek, aynı kimliğe (örn: BPSK) ve banda sahip muharip cihazların eşsiz dijital imzalarla radarda izole edilmesine imkan verir.
 
 ---
 
