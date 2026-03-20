@@ -1,24 +1,79 @@
 import numpy as np
 import random
+import socket
+import pickle
+import threading
 import time
 from core.config import SAMPLING_RATE, CENTER_FREQ, FFT_SIZE, NOISE_FLOOR
 
+UDP_HOST = '127.0.0.1'
+UDP_PORT = 5005
+UDP_TIMEOUT = 2.0
+
 
 class RFEnvironment:
-    """Simulates a live RF spectrum with multiple active signals, noise, and jamming feedback."""
+    """RF environment: receives spectrum via UDP when available, falls back to
+    built-in simulation. Jamming effects are applied to whichever source is active."""
 
-    def __init__(self):
-        self.center_freq = CENTER_FREQ
-        self.fs          = SAMPLING_RATE
-        self.fft_size    = FFT_SIZE
-        self.noise_floor = NOISE_FLOOR
+    def __init__(self, udp_host=UDP_HOST, udp_port=UDP_PORT):
+        self.center_freq    = CENTER_FREQ
+        self.fs             = SAMPLING_RATE
+        self.fft_size       = FFT_SIZE
+        self.noise_floor    = NOISE_FLOOR
         self.active_signals = []
         self.jamming_action = "STANDBY"
+
+        self._udp_psd         = None
+        self._udp_last_rx     = 0.0
+        self._udp_lock        = threading.Lock()
+
+        self._start_udp_listener(udp_host, udp_port)
 
     def set_jamming(self, action):
         self.jamming_action = action
 
+    def _start_udp_listener(self, host, port):
+        def _listen():
+            try:
+                sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                sock.bind((host, port))
+                sock.settimeout(1.0)
+            except OSError:
+                return
+            while True:
+                try:
+                    data, _ = sock.recvfrom(65535)
+                    payload = pickle.loads(data)
+                    with self._udp_lock:
+                        if "psd" in payload:
+                            self._udp_psd = payload["psd"]
+                        if "active_signals" in payload:
+                            self.active_signals = payload["active_signals"]
+                        self._udp_last_rx = time.time()
+                except socket.timeout:
+                    continue
+                except Exception:
+                    time.sleep(0.1)
+
+        t = threading.Thread(target=_listen, daemon=True)
+        t.start()
+
+    def _udp_active(self):
+        with self._udp_lock:
+            return (self._udp_psd is not None and
+                    (time.time() - self._udp_last_rx) < UDP_TIMEOUT)
+
     def generate_spectrum_frame(self):
+        if self._udp_active():
+            with self._udp_lock:
+                psd = np.array(self._udp_psd, dtype=float)
+        else:
+            psd = self._local_simulate()
+
+        psd = self._apply_jamming(psd)
+        return psd.tolist()
+
+    def _local_simulate(self):
         noise = (np.random.normal(0, 1, self.fft_size) +
                  1j * np.random.normal(0, 1, self.fft_size))
         psd = 10 * np.log10(np.abs(np.fft.fftshift(np.fft.fft(noise, n=self.fft_size))) ** 2 + 1e-12)
@@ -29,13 +84,11 @@ class RFEnvironment:
 
         for sig in self.active_signals[:]:
             if sig.get('hopping', False) and np.random.rand() > 0.8:
-                hop_offset = (np.random.rand() - 0.5) * (self.fs * 0.8)
-                sig['freq'] = self.center_freq + hop_offset
+                sig['freq'] = self.center_freq + (np.random.rand() - 0.5) * self.fs * 0.8
 
-            fading = 1.0 + 0.2 * np.sin(time.time() * 10.0 + sig.get('phase_offset', 0))
+            fading      = 1.0 + 0.2 * np.sin(time.time() * 10.0 + sig.get('phase_offset', 0))
             current_amp = sig['amplitude'] * fading
-
-            freq_idx = int((sig['freq'] - (self.center_freq - self.fs / 2)) / (self.fs / self.fft_size))
+            freq_idx    = int((sig['freq'] - (self.center_freq - self.fs / 2)) / (self.fs / self.fft_size))
             if 0 <= freq_idx < self.fft_size:
                 width = sig['bw'] / (self.fs / self.fft_size)
                 x     = np.arange(self.fft_size)
@@ -46,20 +99,17 @@ class RFEnvironment:
             if sig['duration'] <= 0:
                 self.active_signals.remove(sig)
 
-        psd = self._apply_jamming(psd)
-        return psd.tolist()
+        return psd
 
     def _apply_jamming(self, psd):
         action = self.jamming_action
         if action == "JAM_BARRAGE":
-            jam_noise = np.random.uniform(12, 22, self.fft_size)
-            psd = psd + jam_noise
+            psd = psd + np.random.uniform(12, 22, self.fft_size)
         elif action == "JAM_SPOT":
             for sig in self.active_signals:
                 freq_idx = int((sig['freq'] - (self.center_freq - self.fs / 2)) / (self.fs / self.fft_size))
                 if 0 <= freq_idx < self.fft_size:
-                    half_w = 15
-                    lo, hi = max(0, freq_idx - half_w), min(self.fft_size, freq_idx + half_w)
+                    lo, hi = max(0, freq_idx - 15), min(self.fft_size, freq_idx + 15)
                     psd[lo:hi] = self.noise_floor + np.random.uniform(0, 2, hi - lo)
         elif action == "DECEPTIVE_JAM":
             for _ in range(random.randint(2, 5)):
@@ -67,18 +117,18 @@ class RFEnvironment:
                 half_w   = random.randint(5, 20)
                 x        = np.arange(self.fft_size)
                 fake_amp = random.uniform(15, 35)
-                psd      = np.maximum(psd, self.noise_floor + fake_amp * np.exp(-((x - fake_idx) ** 2) / (2 * half_w ** 2)))
+                psd      = np.maximum(psd, self.noise_floor +
+                                      fake_amp * np.exp(-((x - fake_idx) ** 2) / (2 * half_w ** 2)))
         return psd
 
     def _spawn_random_signal(self):
         mod_types = ["BPSK", "QPSK", "AM", "FM", "LoRa", "Radar"]
         weights   = [0.25, 0.20, 0.15, 0.15, 0.15, 0.10]
-        freq_offset = (np.random.rand() - 0.5) * (self.fs * 0.8)
-        sig_type    = random.choices(mod_types, weights=weights, k=1)[0]
-        amplitude   = np.random.uniform(35, 65) if sig_type == "Radar" else np.random.uniform(20, 55)
-        bw          = np.random.uniform(5e3, 30e3) if sig_type == "Radar" else np.random.uniform(10e3, 100e3)
+        sig_type  = random.choices(mod_types, weights=weights, k=1)[0]
+        amplitude = np.random.uniform(35, 65) if sig_type == "Radar" else np.random.uniform(20, 55)
+        bw        = np.random.uniform(5e3, 30e3) if sig_type == "Radar" else np.random.uniform(10e3, 100e3)
         self.active_signals.append({
-            "freq":           self.center_freq + freq_offset,
+            "freq":           self.center_freq + (np.random.rand() - 0.5) * self.fs * 0.8,
             "bw":             bw,
             "amplitude":      amplitude,
             "type":           sig_type,
@@ -92,5 +142,7 @@ class RFEnvironment:
 
 if __name__ == "__main__":
     env   = RFEnvironment()
+    time.sleep(0.5)
     frame = env.generate_spectrum_frame()
-    print(f"Frame size: {len(frame)}, active signals: {len(env.active_signals)}")
+    mode  = "UDP" if env._udp_active() else "LOCAL"
+    print(f"[{mode}] Frame size: {len(frame)}, active signals: {len(env.active_signals)}")
