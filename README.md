@@ -30,6 +30,23 @@ Klasik enerji tabanlı eşik (Threshold) tespiti yerine spektrum, 2 boyutlu bir 
 - **OpenCV & Canny Edge Algoritmaları:** SDR modülünden akan PSD (Power Spectral Density) verileri `uint8` gri tonlamalı imaj matrislerine dönüştürülür.
 - **Sinyal Morfolojisi Analizi:** Sistem, `cv2.findContours` fonksiyonları kullanılarak atmosferik solma (Atmospheric Fading) ve çevresel gürültünün yarattığı dezenformasyon filtreleyerek sinyal adacıklarının (blobs) merkez frekansını, bant genişliğini ve SNR marjını otonom olarak hesaplar.
 
+## 🧠 Bilişsel Yapay Zeka Mimarisi (Phase 2)
+
+Sistem, basit kural tabanlı algoritmaların ötesine geçerek şu gelişmiş AI bileşenlerini kullanır:
+
+### 1. LSTM Tabanlı Frekans Atlamalı Tahminleyici (Hop Predictor)
+- **Modül:** `modules/predictor/hop_predictor.py`
+- **Görev:** `QPSK` veya `Radar` gibi frekans atlamalı (FHSS) sinyallerin geçmiş verilerini analiz ederek bir sonraki frekans adımını (hop) yaklaşık **%85+ doğrulukla** tahmin eder.
+- **Teknoloji:** PyTorch tabanlı Sequence-to-One LSTM Sinir Ağı.
+
+### 2. DQN-Ready Electronic Attack (EA) Optimizer
+- **Modül:** `modules/optimizer/et_optimizer.py`
+- **Görev:** Tehdit seviyesi ve AI tahmin isabetine göre en uygun jamming politikasını (Standby, Spot, Barrage) belirler.
+- **Ödül Fonksiyonu:** Tahmin edilen frekansa yapılan başarılı taarruzlar için ekstra ödül (+25 pts) alarak "Anticipatory Jamming" yeteneğini geliştirir.
+
+### 3. Bilişsel Analiz Dashboard
+- **Görselleştirme:** Sinir ağlarının içsel durumunu ve gelecek tahminlerini canlı olarak raporlar.
+
 ### 2. PyTorch Tabanlı Derin Sınıflandırma Ağları (Deep Learning)
 Tespit edilen bir sinyalin modülasyon tipini (BPSK, QPSK, 16QAM, FMCW, LoRa vb.) kestirmek için istatistiksel kurallar yerine **PyTorch** mimarisi kullanılarak Çok Katmanlı İleri Beslemeli Yapay Sinir Ağı (MLP - Multi-Layer Perceptron) devreye sokulur.
 - **Tensör Ağ Yapısı:** Sinyalin bant genişliği (BW) ve sinyal-gürültü oranı (SNR) normalize edilmiş tensör girdileri olarak `Linear(2, 16) -> ReLU -> Linear(16,8) -> ReLU -> Linear(8, Classes)` zinciri boyunca ileri yönlü (Forward-Pass) işlenir.

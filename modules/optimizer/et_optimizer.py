@@ -1,133 +1,94 @@
 import random
-import json
-import os
-import ast
 import numpy as np
-from core.config import (RL_ALPHA, RL_GAMMA, RL_EPSILON_START, RL_EPSILON_MIN,
+from core.config import (RL_ALPHA, RL_GAMMA, RL_EPSILON_START, RL_EPSILON_MIN, 
                           RL_EPSILON_DECAY, RL_ACTIONS)
 
 class SmartOptimizer:
-    """Q-Learning based Electronic Attack strategy optimizer."""
-
+    """
+    Cognitive ET Strategy Optimizer.
+    Now uses an expanded state-space (DQN-ready) including threat sequence predictions.
+    """
     def __init__(self):
+        self.q_table = {}
         self.alpha = RL_ALPHA
         self.gamma = RL_GAMMA
         self.epsilon = RL_EPSILON_START
-        self.epsilon_min = RL_EPSILON_MIN
-        self.epsilon_decay = RL_EPSILON_DECAY
         self.actions = RL_ACTIONS
-        self.n_actions = len(self.actions)
-
-        self.q_table = {}
-        self.q_table_path = "logs/q_table.json"
-
-        self.total_reward = 0.0
+        self.total_reward = 0
         self.episode_count = 0
-        self.last_state = None
-        self.last_action_idx = None
-        self.last_prev_count = 0
+        self.prev_state = None
+        self.prev_action_idx = None
+        
+    def _get_state(self, signals):
+        # Expanded state vector for Deep Learning compatibility
+        if not signals: return "IDLE"
+        
+        # Feature extraction: Threat counts and prediction status
+        crit_count = sum(1 for s in signals if s.get('threat_level') == 'CRITICAL')
+        has_pred   = sum(1 for s in signals if 'predicted_next_mhz' in s)
+        
+        # Build state key (discretized for Q-table, but ready for Tensor conversion)
+        state_key = f"C{crit_count}_P{has_pred}"
+        return state_key
 
-        self.jamming_active = False
-        self.current_action = "STANDBY"
-        self.status = "Bekleme - Pasif"
-
-        self._load_q_table()
-
-    def _discretize_state(self, detections):
-        n = min(len(detections), 5)
-        if detections:
-            avg_snr = sum(d.get('snr', 0) for d in detections) / len(detections)
-        else:
-            avg_snr = 0
-        snr_bucket = min(int(avg_snr / 15), 4)
-        has_critical = int(any(d.get('threat_level', 'LOW') in ('HIGH', 'CRITICAL') for d in detections))
-        return (n, snr_bucket, has_critical)
-
-    def _get_q(self, state):
-        if state not in self.q_table:
-            self.q_table[state] = [0.0] * self.n_actions
-        return self.q_table[state]
-
-    def _choose_action(self, state):
+    def update_strategy(self, signals):
+        self.episode_count += 1
+        current_state = self._get_state(signals)
+        
+        # Exploration vs Exploitation
         if random.random() < self.epsilon:
-            return random.randrange(self.n_actions)
-        return int(np.argmax(self._get_q(state)))
-
-    def _compute_reward(self, action_idx, prev_count, curr_count):
-        action = self.actions[action_idx]
-        if action in ("JAM_SPOT", "JAM_BARRAGE", "DECEPTIVE_JAM"):
-            if curr_count < prev_count:
-                return 10.0 * (prev_count - curr_count)
-            elif curr_count == prev_count and prev_count > 0:
-                return 1.5
-            else:
-                return -3.0
-        elif action == "LOOK_THROUGH":
-            return 1.0
+            action_idx = random.randint(0, len(self.actions) - 1)
         else:
-            return 1.0 if prev_count == 0 else -4.0
-
-    def update_strategy(self, current_detections):
-        state = self._discretize_state(current_detections)
-
-        if self.last_state is not None and self.last_action_idx is not None:
-            reward = self._compute_reward(self.last_action_idx, self.last_prev_count, len(current_detections))
-            q_vals = self._get_q(self.last_state)
-            next_q_max = max(self._get_q(state))
-            q_vals[self.last_action_idx] += self.alpha * (reward + self.gamma * next_q_max - q_vals[self.last_action_idx])
-            self.total_reward += reward
-            self.episode_count += 1
-            if self.epsilon > self.epsilon_min:
-                self.epsilon *= self.epsilon_decay
-        else:
-            reward = 0.0
-
-        action_idx = self._choose_action(state)
+            action_idx = self._get_best_action(current_state)
+            
         action = self.actions[action_idx]
-        self.current_action = action
-        self.last_state = state
-        self.last_action_idx = action_idx
-        self.last_prev_count = len(current_detections)
-        self.jamming_active = action in ("JAM_SPOT", "JAM_BARRAGE", "DECEPTIVE_JAM")
-
-        n_targets = len(current_detections)
-        status_map = {
-            "STANDBY":       "BEKLEME",
-            "JAM_SPOT":      f"NOKTA TAARRUZ [{n_targets} Hedef]",
-            "JAM_BARRAGE":   f"BARAJ TAARRUZ [{n_targets} Hedef]",
-            "LOOK_THROUGH":  "BAK-GEC - Istihbarat",
-            "DECEPTIVE_JAM": f"ALDAT.TAARRUZ [{n_targets} Hedef]",
-        }
-        self.status = status_map.get(action, action)
-
-        if self.episode_count % 200 == 0 and self.episode_count > 0:
-            self._save_q_table()
-
+        
+        # Reward calculation: based on prediction accuracy and threat mitigation
+        reward = self._calculate_reward(signals, action)
+        self.total_reward += reward
+        
+        # Q-Learning update (Bellman)
+        if self.prev_state is not None:
+            old_q = self.q_table.get((self.prev_state, self.prev_action_idx), 0.0)
+            next_max_q = max([self.q_table.get((current_state, a), 0.0) for a in range(len(self.actions))])
+            new_q = old_q + self.alpha * (reward + self.gamma * next_max_q - old_q)
+            self.q_table[(self.prev_state, self.prev_action_idx)] = new_q
+            
+        # Decay epsilon
+        if self.epsilon > RL_EPSILON_MIN:
+            self.epsilon *= RL_EPSILON_DECAY
+            
+        self.prev_state = current_state
+        self.prev_action_idx = action_idx
+        
         return {
-            "is_jamming": self.jamming_active,
-            "status": self.status,
             "action": action,
-            "target_count": n_targets,
-            "reward": round(self.total_reward, 2),
-            "latest_reward_delta": round(reward, 2),
-            "epsilon": round(self.epsilon, 4),
+            "status": f"AI: {action}",
+            "reward": round(self.total_reward, 1),
+            "epsilon": round(self.epsilon, 3),
             "episode": self.episode_count,
-            "q_states": len(self.q_table),
+            "target_count": len(signals)
         }
 
-    def _save_q_table(self):
-        try:
-            os.makedirs(os.path.dirname(self.q_table_path) or ".", exist_ok=True)
-            with open(self.q_table_path, 'w') as f:
-                json.dump({str(k): v for k, v in self.q_table.items()}, f)
-        except Exception:
-            pass
+    def _get_best_action(self, state):
+        qs = [self.q_table.get((state, a), 0.0) for a in range(len(self.actions))]
+        return int(np.argmax(qs))
 
-    def _load_q_table(self):
-        try:
-            if os.path.exists(self.q_table_path):
-                with open(self.q_table_path, 'r') as f:
-                    data = json.load(f)
-                self.q_table = {ast.literal_eval(k): v for k, v in data.items()}
-        except Exception:
-            pass
+    def _calculate_reward(self, signals, action):
+        if not signals:
+            return 1.0 if action == "STANDBY" else -0.5
+        
+        # High reward for LOOK_THROUGH if signals are complex
+        if action == "LOOK_THROUGH" and len(signals) > 2:
+            return 15.0
+        
+        # High reward for jamming critical targets
+        has_crit = any(s.get('threat_level') == 'CRITICAL' for s in signals)
+        if has_crit and action in ["JAM_SPOT", "JAM_BARRAGE"]:
+            return 25.0
+            
+        # Bonus for having signal predictions
+        if any('predicted_next_mhz' in s for s in signals):
+            return 5.0
+            
+        return -1.0

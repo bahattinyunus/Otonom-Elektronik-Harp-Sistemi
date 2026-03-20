@@ -7,6 +7,7 @@ from modules.direction_finder.df_logic import DirectionFinder
 from modules.optimizer.et_optimizer import SmartOptimizer
 from modules.tracker.kalman_tracker import KalmanTracker
 from modules.denoiser.denoiser import SpectralDenoiser
+from modules.predictor.hop_predictor import FrequencyHopPredictor
 from core.config import NOISE_FLOOR
 from core.blackbox import MissionLogger
 
@@ -22,6 +23,7 @@ class SystemOrchestrator:
         self.optimizer  = SmartOptimizer()
         self.tracker    = KalmanTracker()
         self.denoiser   = SpectralDenoiser()
+        self.predictor  = FrequencyHopPredictor()
         self.logger     = MissionLogger("logs/mission_log.db")
 
         self.mode           = "AUTO"
@@ -77,6 +79,15 @@ class SystemOrchestrator:
             })
 
         processed_signals = self.tracker.update(processed_signals)
+
+        # 4. Predict next hop for tracking targets
+        for sig in processed_signals:
+            track_id = sig.get("track_id")
+            if track_id:
+                # Predicting for all identified tracks, LSTM learns if it's hopping
+                prediction = self.predictor.update_and_predict(track_id, sig["freq_mhz"])
+                if prediction:
+                    sig["predicted_next_mhz"] = round(float(prediction), 3)
 
         if self.mode == "AUTO":
             ea_status = self.optimizer.update_strategy(processed_signals)

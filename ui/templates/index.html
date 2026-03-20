@@ -254,6 +254,20 @@
             <div class="logs" id="logs"></div>
         </div>
 
+        <!-- AI Analytics Panel -->
+        <div class="panel" style="border-left-color:var(--success);background:linear-gradient(135deg, var(--panel) 0%, rgba(0,255,136,0.05) 100%);">
+            <div class="panel-title" style="color:var(--success);">BİLİŞSEL ANALİZ (AI)</div>
+            <div id="ai-status-container">
+                <div style="font-size:.65rem;color:var(--dim);margin-bottom:8px;">LSTM TABANLI FREKANS TAHMİNİ (ANTICIPATORY)</div>
+                <div id="ai-predictions" style="font-family:'Courier New', monospace;font-size:0.65rem;color:var(--success);">Veri bekleniyor...</div>
+                
+                <div style="margin-top:12px;font-size:.65rem;color:var(--dim);margin-bottom:4px;">REINFORCEMENT LEARNING AKTİVASYONU</div>
+                <div style="display:flex;gap:4px;height:12px;background:rgba(255,255,255,0.05);border-radius:6px;overflow:hidden;">
+                    <div id="ai-rl-bar" style="width:0%;background:var(--accent);transition:width 0.3s;"></div>
+                </div>
+            </div>
+        </div>
+
     </div>
 </main>
 
@@ -474,7 +488,10 @@
                 <td style="color:var(--accent);font-size:.63rem;">${sig.track_id || 'N/A'}</td>
                 <td style="font-weight:600;font-size:.72rem;">${sig.freq_mhz || '?'}</td>
                 <td><span style="color:${col}">${sig.type}</span> <span style="opacity:.45;font-size:.6rem;">${conf}%</span></td>
-                <td style="color:var(--warn);font-weight:700;">${sig.aoa !== undefined ? sig.aoa + '°' : '?'}</td>
+                <td style="color:var(--warn);font-weight:700;">
+                    ${sig.aoa !== undefined ? sig.aoa + '°' : '?'}
+                    ${sig.predicted_next_mhz ? `<br><span style="color:var(--success);font-size:0.55rem;">Next: ${sig.predicted_next_mhz}</span>` : ''}
+                </td>
                 <td style="opacity:.6;font-size:.67rem;">${fmtBW(sig.bandwidth_hz)}Hz</td>
                 <td style="color:${sig.snr > 30 ? 'var(--hazard)' : sig.snr > 15 ? 'var(--warn)' : 'var(--dim)'};font-size:.7rem;">${sig.snr}</td>
                 <td><span class="threat threat-${sig.threat_level}">${sig.threat_level}</span></td>`;
@@ -505,6 +522,17 @@
             logsEl.prepend(e);
             if (logsEl.children.length > 40) logsEl.removeChild(logsEl.lastChild);
         }
+
+        // AI Analytics
+        const predDiv = document.getElementById('ai-predictions');
+        let predHtml = '';
+        (data.signals || []).filter(s => s.predicted_next_mhz).forEach(s => {
+            predHtml += `<div>[${s.track_id}] Expect @ ${s.predicted_next_mhz} MHz</div>`;
+        });
+        predDiv.innerHTML = predHtml || 'Sinyal analizi yapılıyor...';
+        
+        const rewardPct = Math.min(100, Math.max(0, (ea.reward / 500) * 100));
+        document.getElementById('ai-rl-bar').style.width = rewardPct + '%';
     });
 </script>
 </body>
