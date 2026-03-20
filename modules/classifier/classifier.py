@@ -1,64 +1,62 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
+from core.config import THREAT_MAP
+
 
 class ModulationNet(nn.Module):
-    """Simple Multi-Layer Perceptron (MLP) for classifying RF signals."""
+    """MLP classifier for RF signal modulation type."""
     def __init__(self, num_classes):
         super().__init__()
         self.net = nn.Sequential(
-            nn.Linear(2, 16),
+            nn.Linear(3, 32),
             nn.ReLU(),
-            nn.Linear(16, 8),
+            nn.Linear(32, 16),
             nn.ReLU(),
-            nn.Linear(8, num_classes)
+            nn.Linear(16, num_classes),
         )
-        
+
     def forward(self, x):
         return self.net(x)
 
+
 class ModulationClassifier:
-    """Classifies the modulation type of a detected signal using a PyTorch MLP."""
+    """Classifies RF signal modulation type, confidence and threat level."""
+
     def __init__(self):
-        self.classes = ["BPSK", "QPSK", "16QAM", "AM", "FM", "LoRa", "Noise"]
-        
-        # Initialize an untrained PyTorch network.
-        # Set manual_seed for deterministic pseudo-classification logic in simulation.
+        self.classes = ["BPSK", "QPSK", "16QAM", "AM", "FM", "LoRa", "Radar", "Noise"]
         torch.manual_seed(42)
         self.model = ModulationNet(len(self.classes))
         self.model.eval()
 
     def classify(self, signal_data):
-        bw = float(signal_data.get('bandwidth_idx', 0))
+        bw  = float(signal_data.get('bandwidth_idx', 0))
         snr = float(signal_data.get('snr', 0))
-        
+
         if snr < 5:
-            return "Noise"
-            
-        # 1. Prepare tensor input (Normalized loosely to 0-1 range)
-        x = torch.tensor([[snr / 50.0, bw / 50.0]], dtype=torch.float32)
-        
-        # 2. Forward pass through PyTorch Neutral Network
+            return "Noise", 0.97, "LOW"
+
+        duration_proxy = min(bw / 10.0, 5.0)
+        x = torch.tensor([[snr / 60.0, bw / 60.0, duration_proxy / 5.0]], dtype=torch.float32)
+
         with torch.no_grad():
             logits = self.model(x)
-            
-        # 3. Get predicted class
-        pred_idx = torch.argmax(logits, dim=1).item()
-        mod_type = self.classes[pred_idx]
-        
-        # Tactical override: Untrained network might predict AM for wideband, fix obvious physical impossibilities.
-        if bw > 25 and mod_type in ["BPSK", "AM"]:
-             mod_type = "LoRa"
-        elif bw < 10 and mod_type in ["LoRa", "16QAM"]:
-             mod_type = "AM"
-             
-        return mod_type
+            probs  = F.softmax(logits, dim=1)
+
+        pred_idx   = torch.argmax(probs, dim=1).item()
+        confidence = float(probs[0, pred_idx])
+        mod_type   = self.classes[pred_idx]
+
+        if snr > 45 and bw > 30:
+            mod_type = "Radar"
+        elif bw > 40 and mod_type in ("BPSK", "AM"):
+            mod_type = "LoRa"
+        elif bw < 8 and mod_type in ("LoRa", "16QAM"):
+            mod_type = "AM"
+
+        threat_level = THREAT_MAP.get(mod_type, "MEDIUM")
+        return mod_type, round(confidence, 3), threat_level
 
     def extract_rfi_signature(self, phase_noise, carrier_offset):
-        """
-        Simulates RF Fingerprinting (RFI) by calculating a deterministic hash
-        from hardware imperfections like phase noise and carrier offset.
-        """
-        # Create a hexadecimal hash representation based on hardware limits
         val = abs(phase_noise * 1000) + abs(carrier_offset)
-        rfi_hash = f"0x{(int(val * 12345) % 0xFFFFF):05X}"
-        return rfi_hash
+        return f"0x{(int(val * 12345) % 0xFFFFF):05X}"

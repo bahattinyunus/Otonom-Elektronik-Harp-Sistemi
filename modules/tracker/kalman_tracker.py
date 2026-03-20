@@ -1,63 +1,117 @@
-import time
 import math
+import numpy as np
+from core.config import (KALMAN_PROCESS_NOISE_FREQ, KALMAN_PROCESS_NOISE_AOA,
+                          KALMAN_MEAS_NOISE_FREQ, KALMAN_MEAS_NOISE_AOA,
+                          TRACKER_DISTANCE_THRESHOLD, TRACKER_MAX_AGE)
+
+
+class KalmanFilter1D:
+    """Constant-velocity Kalman filter for a single scalar dimension."""
+
+    def __init__(self, initial_pos, process_noise=1.0, meas_noise=5.0):
+        self.x = np.array([initial_pos, 0.0], dtype=float)
+        self.P = np.eye(2) * 100.0
+        self.F = np.array([[1.0, 1.0], [0.0, 1.0]])
+        self.H = np.array([[1.0, 0.0]])
+        self.Q = np.diag([process_noise, process_noise * 0.1])
+        self.R = np.array([[meas_noise]])
+
+    def predict(self):
+        self.x = self.F @ self.x
+        self.P = self.F @ self.P @ self.F.T + self.Q
+        return self.x[0]
+
+    def update(self, measurement):
+        y = measurement - self.H @ self.x
+        S = self.H @ self.P @ self.H.T + self.R
+        K = self.P @ self.H.T / S[0, 0]
+        self.x = self.x + K * y[0]
+        self.P = (np.eye(2) - np.outer(K, self.H)) @ self.P
+        return self.x[0]
+
+    @property
+    def velocity(self):
+        return self.x[1]
+
 
 class KalmanTracker:
-    """ Tracks detected emitters over time using a simple distance-based correlation mechanism
-        (simplified alpha-beta tracker for AoA and Frequency). """
-    def __init__(self, distance_threshold=20.0, max_age=5):
-        self.tracks = {}  # key: track_id, value: track_data
+    """Track-While-Scan using per-target 1D Kalman filters for frequency and AoA."""
+
+    def __init__(self,
+                 distance_threshold=TRACKER_DISTANCE_THRESHOLD,
+                 max_age=TRACKER_MAX_AGE):
+        self.tracks = {}
         self.next_id = 1
         self.distance_threshold = distance_threshold
         self.max_age = max_age
 
-    def _distance(self, sig1, sig2):
-        # Normalize diffs to get a comparable distance metric
-        freq_diff = abs(sig1['freq_idx'] - sig2['freq_idx']) * 0.5
-        # Shortest angular distance for AoA
-        aoa_diff = min(abs(sig1['aoa'] - sig2['aoa']), 360 - abs(sig1['aoa'] - sig2['aoa']))
-        return math.sqrt(freq_diff**2 + aoa_diff**2)
+    def _predict_state(self, track):
+        track['kf_freq'].predict()
+        track['kf_aoa'].predict()
+
+    def _distance(self, det, track):
+        freq_pred = track['kf_freq'].x[0]
+        aoa_pred  = track['kf_aoa'].x[0]
+        freq_diff = abs(det['freq_idx'] - freq_pred) * 0.5
+        aoa_diff  = min(abs(det['aoa'] - aoa_pred), 360.0 - abs(det['aoa'] - aoa_pred))
+        return math.sqrt(freq_diff ** 2 + aoa_diff ** 2)
 
     def update(self, detections):
-        """ Correlates new detections with existing tracks. """
-        updated_tracks = set()
+        for track in self.tracks.values():
+            self._predict_state(track)
+
+        updated_ids = set()
         results = []
 
         for det in detections:
-            best_match_id = None
-            min_dist = float('inf')
-
+            best_id   = None
+            min_dist  = float('inf')
             for tid, tdata in self.tracks.items():
-                if tid in updated_tracks:
+                if tid in updated_ids:
                     continue
-                dist = self._distance(det, tdata['last_state'])
-                if dist < min_dist and dist < self.distance_threshold:
-                    min_dist = dist
-                    best_match_id = tid
+                d = self._distance(det, tdata)
+                if d < min_dist and d < self.distance_threshold:
+                    min_dist = d
+                    best_id  = tid
 
-            if best_match_id is not None:
-                # Update existing track
-                self.tracks[best_match_id]['age'] = 0
-                self.tracks[best_match_id]['last_state'] = det
-                updated_tracks.add(best_match_id)
-                det['track_id'] = f"TRK-{best_match_id:04d}"
+            if best_id is not None:
+                t = self.tracks[best_id]
+                t['kf_freq'].update(float(det['freq_idx']))
+                t['kf_aoa'].update(float(det['aoa']))
+                t['age'] = 0
+                t['hit_count'] = t.get('hit_count', 0) + 1
+                updated_ids.add(best_id)
+                det['track_id']      = f"TRK-{best_id:04d}"
+                det['track_hits']    = t['hit_count']
+                det['freq_velocity'] = round(t['kf_freq'].velocity, 3)
             else:
-                # Create new track
-                new_id = self.next_id
+                nid = self.next_id
                 self.next_id += 1
-                self.tracks[new_id] = {
+                self.tracks[nid] = {
                     'age': 0,
-                    'last_state': det
+                    'hit_count': 1,
+                    'kf_freq': KalmanFilter1D(
+                        float(det['freq_idx']),
+                        process_noise=KALMAN_PROCESS_NOISE_FREQ,
+                        meas_noise=KALMAN_MEAS_NOISE_FREQ,
+                    ),
+                    'kf_aoa': KalmanFilter1D(
+                        float(det['aoa']),
+                        process_noise=KALMAN_PROCESS_NOISE_AOA,
+                        meas_noise=KALMAN_MEAS_NOISE_AOA,
+                    ),
                 }
-                updated_tracks.add(new_id)
-                det['track_id'] = f"TRK-{new_id:04d}"
-                
+                updated_ids.add(nid)
+                det['track_id']      = f"TRK-{nid:04d}"
+                det['track_hits']    = 1
+                det['freq_velocity'] = 0.0
+
             results.append(det)
 
-        # Age missing tracks
         for tid in list(self.tracks.keys()):
-            if tid not in updated_tracks:
+            if tid not in updated_ids:
                 self.tracks[tid]['age'] += 1
                 if self.tracks[tid]['age'] > self.max_age:
                     del self.tracks[tid]
-                    
+
         return results

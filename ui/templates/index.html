@@ -8,517 +8,530 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root {
-            --bg-color: #07090e;
-            --panel-bg: rgba(21, 25, 33, 0.85);
-            --accent: #00f2ff;
-            --text: #e0e0e0;
-            --hazard: #ff3e3e;
+            --bg:      #07090e;
+            --panel:   rgba(18, 22, 32, 0.9);
+            --accent:  #00f2ff;
+            --text:    #dde6f0;
+            --hazard:  #ff3e3e;
             --success: #00ff88;
-            --border: rgba(0, 242, 255, 0.2);
-            --manual: #ff0055;
+            --warn:    #ffc107;
+            --orange:  #ff8c00;
+            --border:  rgba(0, 242, 255, 0.18);
+            --manual:  #ff0055;
+            --dim:     rgba(255,255,255,0.45);
         }
-
+        * { box-sizing: border-box; }
         body {
-            background-color: var(--bg-color);
+            background: radial-gradient(circle at 40% 40%, #0d1220 0%, var(--bg) 100%);
             color: var(--text);
-            font-family: 'Inter', system-ui, -apple-system, sans-serif;
-            margin: 0;
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-            height: 100vh;
-            background: radial-gradient(circle at center, #0f131c 0%, #07090e 100%);
+            font-family: 'Inter', system-ui, sans-serif;
+            margin: 0; overflow: hidden;
+            display: flex; flex-direction: column; height: 100vh;
         }
-
+        /* ── Header ─────────────────────────────── */
         header {
-            padding: 1rem 2rem;
-            background: var(--panel-bg);
+            padding: .65rem 1.5rem;
+            background: var(--panel);
             border-bottom: 1px solid var(--border);
-            backdrop-filter: blur(10px);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            box-shadow: 0 0 20px rgba(0, 242, 255, 0.1);
-        }
-
-        .title-group h1 {
-            margin: 0;
-            font-size: 1.2rem;
-            letter-spacing: 2px;
-            color: var(--accent);
-            text-transform: uppercase;
-            text-shadow: 0 0 10px rgba(0, 242, 255, 0.5);
-        }
-
-        .title-group p {
-            margin: 0;
-            font-size: 0.75rem;
-            opacity: 0.7;
-        }
-
-        main {
-            flex: 1;
-            display: grid;
-            grid-template-columns: 1fr 400px;
-            gap: 1.5rem;
-            padding: 1.5rem;
-            height: calc(100vh - 100px);
-        }
-
-        #waterfall-container {
-            position: relative;
-            background: var(--panel-bg);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-            box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.8);
-        }
-
-        #waterfall-canvas {
-            width: 100%;
-            height: 100%;
-            image-rendering: pixelated;
-        }
-
-        .side-panel {
-            display: flex;
-            flex-direction: column;
-            gap: 1.5rem;
-            overflow-y: auto;
-            padding-right: 5px;
-        }
-
-        .side-panel::-webkit-scrollbar { width: 5px; }
-        .side-panel::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 5px; }
-
-        .panel {
-            background: var(--panel-bg);
-            border-radius: 8px;
-            padding: 1rem;
-            border-left: 3px solid var(--accent);
-            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
-            backdrop-filter: blur(5px);
-            position: relative;
-            overflow: hidden;
+            backdrop-filter: blur(12px);
+            display: flex; align-items: center; justify-content: space-between;
+            box-shadow: 0 0 24px rgba(0,242,255,.08);
             flex-shrink: 0;
         }
-
-        .panel-title {
-            font-size: 0.85rem;
-            font-weight: bold;
-            text-transform: uppercase;
-            margin-bottom: 0.75rem;
-            color: var(--accent);
-            display: flex;
-            justify-content: space-between;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-            padding-bottom: 0.5rem;
+        .title-group h1 { margin:0; font-size:1.05rem; letter-spacing:2px; color:var(--accent); text-transform:uppercase; text-shadow:0 0 10px rgba(0,242,255,.4); }
+        .title-group p  { margin:0; font-size:.7rem; opacity:.6; }
+        .header-stats { display:flex; gap:1.2rem; align-items:center; }
+        .hstat { font-size:.72rem; text-align:center; }
+        .hstat-val { display:block; font-size:1rem; font-weight:700; color:var(--accent); line-height:1.1; }
+        .badge { padding:4px 12px; border-radius:4px; font-size:.75rem; font-weight:700; border:1px solid; }
+        .badge-online { background:rgba(0,255,136,.12); color:var(--success); border-color:var(--success); box-shadow:0 0 8px rgba(0,255,136,.15); }
+        /* ── Main layout ─────────────────────────── */
+        main {
+            flex:1; display:grid;
+            grid-template-columns: 1fr 420px;
+            gap:1rem; padding:1rem;
+            min-height: 0;
         }
-
-        #signal-list {
-            list-style: none;
-            padding: 0;
-            margin: 0;
-            font-size: 0.85rem;
-            max-height: 150px;
-            overflow-y: auto;
+        /* ── Left column ─────────────────────────── */
+        .left-col { display:flex; flex-direction:column; gap:.8rem; min-height:0; }
+        #waterfall-wrap {
+            flex:1; min-height:0;
+            background: var(--panel);
+            border:1px solid var(--border); border-radius:8px;
+            overflow:hidden; position:relative;
+            box-shadow: inset 0 0 30px rgba(0,0,0,.7);
         }
-
-        .signal-item {
-            padding: 0.5rem;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            transition: all 0.3s;
+        #wf-label-row {
+            display:flex; justify-content:space-between;
+            padding:2px 8px; font-size:.62rem; color:var(--dim);
+            background:rgba(0,0,0,.4); border-bottom:1px solid var(--border);
+            flex-shrink:0;
         }
-
-        .signal-item:hover {
-            background: rgba(0, 242, 255, 0.1);
-            padding-left: 10px;
-        }
-
-        .status-badge {
-            background: rgba(0, 255, 136, 0.15);
-            color: var(--success);
-            padding: 4px 12px;
-            border-radius: 4px;
-            font-size: 0.8rem;
-            font-weight: bold;
-            border: 1px solid var(--success);
-            box-shadow: 0 0 10px rgba(0, 255, 136, 0.2);
-        }
-
-        .system-logs {
-            font-family: 'Courier New', Courier, monospace;
-            font-size: 0.75rem;
-            height: 100px;
-            overflow-y: auto;
-            color: rgba(255, 255, 255, 0.6);
-        }
-
-        .log-entry { margin-bottom: 4px; border-left: 2px solid rgba(255,255,255,0.2); padding-left: 5px; }
-        .log-entry span { color: var(--accent); }
-
-        .chart-container {
-            position: relative;
-            height: 150px;
-            width: 100%;
-            margin-top: 10px;
-        }
-
-        /* Scanning Animation */
+        #waterfall-canvas { width:100%; height:100%; image-rendering:pixelated; display:block; }
         .scan-line {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 2px;
-            background: var(--accent);
-            box-shadow: 0 0 20px var(--accent), 0 0 40px var(--accent);
-            opacity: 0.7;
-            animation: scan 4s linear infinite;
-            z-index: 10;
+            position:absolute; top:0; left:0; width:100%; height:2px;
+            background:var(--accent);
+            box-shadow:0 0 20px var(--accent),0 0 40px var(--accent);
+            opacity:.6; animation:scan 5s linear infinite; z-index:10;
+            pointer-events:none;
         }
-
-        @keyframes scan {
-            0% { top: 0; }
-            100% { top: 100%; }
+        @keyframes scan { 0%{top:0} 100%{top:100%} }
+        /* PSD spectrum chart */
+        #psd-wrap {
+            height:90px; flex-shrink:0;
+            background:var(--panel); border:1px solid var(--border);
+            border-radius:8px; padding:6px 10px;
         }
-        
-        #ea-status-text {
-            font-size: 1.1rem; 
-            font-weight: bold; 
-            transition: color 0.3s;
+        #psd-wrap .chart-title { font-size:.65rem; color:var(--dim); margin-bottom:3px; }
+        /* ── Right side panel ────────────────────── */
+        .side-panel {
+            display:flex; flex-direction:column; gap:.75rem;
+            overflow-y:auto; padding-right:4px; min-height:0;
         }
-        
-        /* Operator Controls */
+        .side-panel::-webkit-scrollbar{width:4px;}
+        .side-panel::-webkit-scrollbar-thumb{background:var(--accent);border-radius:4px;}
+        .panel {
+            background:var(--panel); border-radius:8px;
+            padding:.85rem; border-left:3px solid var(--accent);
+            box-shadow:0 4px 20px rgba(0,0,0,.45);
+            flex-shrink:0;
+        }
+        .panel-title {
+            font-size:.78rem; font-weight:700; text-transform:uppercase;
+            color:var(--accent); display:flex; justify-content:space-between;
+            border-bottom:1px solid rgba(255,255,255,.08); padding-bottom:.4rem; margin-bottom:.65rem;
+        }
+        /* ── Threat badges ───────────────────────── */
+        .threat { padding:2px 7px; border-radius:3px; font-size:.65rem; font-weight:700; }
+        .threat-LOW      { background:rgba(0,255,136,.15); color:var(--success); }
+        .threat-MEDIUM   { background:rgba(255,193,7,.15);  color:var(--warn); }
+        .threat-HIGH     { background:rgba(255,140,0,.18);  color:var(--orange); }
+        .threat-CRITICAL { background:rgba(255,62,62,.2);   color:var(--hazard); animation:pulse-red 1s infinite; }
+        @keyframes pulse-red { 0%,100%{opacity:1} 50%{opacity:.5} }
+        /* ── Signal table ────────────────────────── */
+        .sig-table { width:100%; border-collapse:collapse; font-size:.72rem; }
+        .sig-table th { color:var(--dim); font-weight:600; text-align:left; padding:3px 4px; border-bottom:1px solid rgba(255,255,255,.06); }
+        .sig-table td { padding:4px 4px; border-bottom:1px solid rgba(255,255,255,.04); vertical-align:middle; }
+        .sig-table tr:hover td { background:rgba(0,242,255,.06); }
+        /* ── Controls ────────────────────────────── */
+        button.ctrl {
+            padding:5px 8px; border:1px solid #555; border-radius:4px;
+            background:transparent; color:#ccc; cursor:pointer;
+            font-family:inherit; font-size:.78rem; transition:.2s;
+        }
+        button.ctrl:hover { border-color:var(--accent); color:var(--accent); }
+        button.ctrl.active-auto  { background:var(--accent); color:#000; border-color:var(--accent); }
+        button.ctrl.active-manual{ background:var(--manual); color:#fff; border-color:var(--manual); }
         input[type=range] {
-            -webkit-appearance: none;
-            background: rgba(255,255,255,0.1);
-            height: 4px;
-            border-radius: 2px;
-            outline: none;
+            -webkit-appearance:none; background:rgba(255,255,255,.1);
+            height:4px; border-radius:2px; outline:none; width:100%;
         }
         input[type=range]::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            width: 15px;
-            height: 15px;
-            background: var(--accent);
-            border-radius: 50%;
-            cursor: pointer;
+            -webkit-appearance:none; width:13px; height:13px;
+            background:var(--accent); border-radius:50%; cursor:pointer;
         }
+        /* ── Metrics grid ────────────────────────── */
+        .metrics { display:grid; grid-template-columns:1fr 1fr; gap:.5rem; margin-bottom:.5rem; }
+        .metric { background:rgba(255,255,255,.04); border-radius:5px; padding:.45rem .6rem; }
+        .metric-lbl { font-size:.6rem; color:var(--dim); text-transform:uppercase; }
+        .metric-val { font-size:1rem; font-weight:700; color:var(--accent); }
+        /* ── Logs ────────────────────────────────── */
+        .logs {
+            font-family:'Courier New',monospace; font-size:.7rem;
+            height:85px; overflow-y:auto; color:rgba(255,255,255,.55);
+        }
+        .log-entry { margin-bottom:3px; border-left:2px solid rgba(255,255,255,.15); padding-left:5px; }
+        .log-entry span { color:var(--accent); }
+        /* ── Occupancy bar ───────────────────────── */
+        .occ-bar { height:6px; background:rgba(255,255,255,.1); border-radius:3px; overflow:hidden; margin-top:4px; }
+        .occ-fill { height:100%; background:linear-gradient(90deg,var(--success),var(--accent)); border-radius:3px; transition:width .4s; }
+        /* EA status */
+        #ea-status-text { font-size:1rem; font-weight:700; transition:color .3s; word-break:break-all; }
+        .chart-container { position:relative; height:75px; width:100%; margin-top:8px; }
     </style>
 </head>
 <body>
-    <header>
-        <div class="title-group">
-            <h1>Otonom-EH Suite v3.0</h1>
-            <p>Cognitive Electronic Warfare Infrastructure | PyTorch/OpenCV ACTIVE</p>
-        </div>
-        <div class="status-badge">SDR STREAM: ONLINE</div>
-    </header>
+<header>
+    <div class="title-group">
+        <h1>Otonom-EH Suite v4.0</h1>
+        <p>Cognitive Electronic Warfare | Q-Learning + Kalman Tracker | PyTorch / OpenCV</p>
+    </div>
+    <div class="header-stats">
+        <div class="hstat"><span class="hstat-val" id="h-targets">0</span>Hedef</div>
+        <div class="hstat"><span class="hstat-val" id="h-reward">0</span>Q-Ödül</div>
+        <div class="hstat"><span class="hstat-val" id="h-occ">0%</span>Doluluk</div>
+        <div class="hstat"><span class="hstat-val" id="h-eps">1.00</span>Epsilon</div>
+        <div class="badge badge-online">SDR: ONLINE</div>
+    </div>
+</header>
 
-    <main>
-        <div id="waterfall-container">
+<main>
+    <div class="left-col">
+        <div id="waterfall-wrap">
+            <div id="wf-label-row" id="freq-axis"></div>
             <div class="scan-line"></div>
             <canvas id="waterfall-canvas"></canvas>
         </div>
+        <div id="psd-wrap">
+            <div class="chart-title">ANLIK SPEKTRUM GÜCÜ (PSD)</div>
+            <canvas id="psdChart" style="height:65px;"></canvas>
+        </div>
+    </div>
 
-        <div class="side-panel">
-            
-            <!-- Operator Control Deck -->
-            <div class="panel" style="border-left-color: var(--manual);">
-                <div class="panel-title" style="color: var(--manual);">OPERATÖR KOMUTA MERKEZİ</div>
-                
-                <div style="margin-bottom: 10px;">
-                    <label style="font-size: 0.8rem; display: block; margin-bottom: 5px;">SİSTEM MODU</label>
-                    <div style="display: flex; gap: 10px;">
-                        <button id="btn-auto" onclick="setMode('AUTO')" style="flex:1; padding: 5px; background: var(--accent); color: #000; border: none; font-weight: bold; cursor: pointer; border-radius: 3px; font-family: inherit;">OTONOM (AI)</button>
-                        <button id="btn-manual" onclick="setMode('MANUAL')" style="flex:1; padding: 5px; background: transparent; color: #fff; border: 1px solid #555; cursor: pointer; border-radius: 3px; font-family: inherit;">MANUEL</button>
-                    </div>
-                </div>
+    <div class="side-panel">
 
-                <div style="margin-bottom: 10px;">
-                    <label style="font-size: 0.8rem; display: flex; justify-content: space-between;">
-                        <span>MANUEL KARIŞTIRMA</span>
-                        <span id="jam-status" style="color: #555;">KAPALI</span>
-                    </label>
-                    <button id="btn-jam" onmousedown="setJam(true)" onmouseup="setJam(false)" onmouseleave="setJam(false)" style="width: 100%; padding: 10px; background: #333; color: #777; border: 1px solid #555; font-weight: bold; cursor: not-allowed; border-radius: 3px; margin-top: 5px; font-family: inherit; font-size: 0.9rem;" disabled>
-                        TAARRUZ (BASILI TUT)
-                    </button>
-                </div>
-
-                <div style="margin-bottom: 15px;">
-                    <a href="/api/export_report" target="_blank" style="text-decoration: none;">
-                        <button style="width: 100%; padding: 8px; background: rgba(0,255,136,0.1); color: var(--success); border: 1px solid var(--success); cursor: pointer; border-radius: 3px; font-family: inherit; font-size: 0.8rem; font-weight: bold; margin-bottom: 5px;">AAR RAPORUNU İNDİR (CSV)</button>
-                    </a>
-                </div>
-
-                <div>
-                    <label style="font-size: 0.8rem; display: flex; justify-content: space-between;">
-                        <span>GÜRÜLTÜ SEVİYESİ (NOISE)</span>
-                        <span id="noise-val">-100 dB</span>
-                    </label>
-                    <input type="range" id="noise-slider" min="-120" max="-40" value="-100" step="1" style="width: 100%; margin-top: 5px;" oninput="setNoise(this.value)">
+        <!-- Operator Control -->
+        <div class="panel" style="border-left-color:var(--manual);">
+            <div class="panel-title" style="color:var(--manual);">KOMUTA MERKEZİ</div>
+            <div style="margin-bottom:.7rem;">
+                <div style="font-size:.72rem;margin-bottom:5px;color:var(--dim);">SİSTEM MODU</div>
+                <div style="display:flex;gap:8px;">
+                    <button id="btn-auto"   class="ctrl active-auto"   onclick="setMode('AUTO')"   style="flex:1;">OTONOM (AI)</button>
+                    <button id="btn-manual" class="ctrl"               onclick="setMode('MANUAL')" style="flex:1;">MANUEL</button>
                 </div>
             </div>
-
-            <!-- ET Status & Q-Learning -->
-            <div class="panel">
-                <div class="panel-title">BİLİŞSEL ET DURUMU</div>
-                <div id="ea-status-text" style="color: var(--success)">AĞ ARAMASI...</div>
-                <div style="display: flex; justify-content: space-between; margin-top: 10px; font-size: 0.8rem; opacity: 0.8;">
-                    <span>Hedef: <strong id="target-count">0</strong></span>
-                    <span>Q-Ödül: <strong id="total-reward" style="color: var(--accent)">0</strong></span>
+            <div style="margin-bottom:.7rem;">
+                <div style="font-size:.72rem;display:flex;justify-content:space-between;margin-bottom:5px;">
+                    <span style="color:var(--dim);">MANUEL KARIŞTIRMA</span>
+                    <span id="jam-status" style="color:#555;">KAPALI</span>
                 </div>
-                <!-- Reward Chart -->
-                <div class="chart-container" style="height: 80px;">
-                    <canvas id="rewardChart"></canvas>
-                </div>
+                <button id="btn-jam" class="ctrl" style="width:100%;padding:8px;cursor:not-allowed;opacity:.4;"
+                    onmousedown="setJam(true)" onmouseup="setJam(false)" onmouseleave="setJam(false)" disabled>
+                    TAARRUZ (BASILI TUT)
+                </button>
             </div>
-
-            <!-- Signal Detection & DF -->
-            <div class="panel">
-                <div class="panel-title">
-                    <span>YÖN BULUCU & TESPİT</span>
-                    <span id="sig-count">0</span>
+            <div style="margin-bottom:.7rem;">
+                <div style="font-size:.72rem;display:flex;justify-content:space-between;margin-bottom:4px;">
+                    <span style="color:var(--dim);">GÜRÜLTÜ SEVİYESİ</span>
+                    <span id="noise-val" style="color:var(--accent);">-100 dBm</span>
                 </div>
-                <!-- Radar Chart for AoA -->
-                <div class="chart-container" style="height: 120px;">
-                    <canvas id="radarChart"></canvas>
-                </div>
-                <div id="signal-list" style="margin-top: 10px;"></div>
+                <input type="range" id="noise-slider" min="-120" max="-40" value="-100" step="1" oninput="setNoise(this.value)">
             </div>
+            <a href="/api/export_report" target="_blank" style="text-decoration:none;">
+                <button class="ctrl" style="width:100%;color:var(--success);border-color:var(--success);">
+                    AAR RAPORU INDIR (CSV)
+                </button>
+            </a>
+        </div>
 
-            <!-- Logs -->
-            <div class="panel">
-                <div class="panel-title">SİSTEM LOGLARI (DB)</div>
-                <div class="system-logs" id="logs"></div>
+        <!-- EA / RL Status -->
+        <div class="panel">
+            <div class="panel-title">BİLİŞSEL ET DURUMU
+                <span id="action-badge" style="font-size:.65rem;color:var(--dim);">STANDBY</span>
+            </div>
+            <div id="ea-status-text" style="color:var(--success);">BAŞLATILIYOR...</div>
+            <div class="metrics" style="margin-top:.6rem;">
+                <div class="metric"><div class="metric-lbl">Hedef</div><div class="metric-val" id="target-count">0</div></div>
+                <div class="metric"><div class="metric-lbl">Q-Ödül</div><div class="metric-val" id="total-reward" style="color:var(--warn);">0</div></div>
+                <div class="metric"><div class="metric-lbl">Epsilon</div><div class="metric-val" id="rl-eps" style="font-size:.85rem;">1.000</div></div>
+                <div class="metric"><div class="metric-lbl">Episode</div><div class="metric-val" id="rl-eps-count" style="font-size:.85rem;">0</div></div>
+            </div>
+            <div style="font-size:.65rem;color:var(--dim);">SPEKTRUM DOLULUK
+                <span id="occ-pct" style="color:var(--accent);float:right;">0%</span>
+            </div>
+            <div class="occ-bar"><div class="occ-fill" id="occ-fill" style="width:0%;"></div></div>
+            <div class="chart-container">
+                <canvas id="rewardChart"></canvas>
             </div>
         </div>
-    </main>
 
-    <script>
-        const socket = io();
-        const canvas = document.getElementById('waterfall-canvas');
-        const ctx = canvas.getContext('2d');
-        const signalList = document.getElementById('signal-list');
-        const logs = document.getElementById('logs');
-        const sigCount = document.getElementById('sig-count');
-        const eaStatusText = document.getElementById('ea-status-text');
-        const targetCountEl = document.getElementById('target-count');
-        const totalRewardEl = document.getElementById('total-reward');
+        <!-- Direction Finder & Signals -->
+        <div class="panel">
+            <div class="panel-title">
+                YÖN BULUCU & TESPİT
+                <span id="sig-count" style="color:var(--warn);">0 sinyal</span>
+            </div>
+            <div style="display:grid;grid-template-columns:110px 1fr;gap:.5rem;align-items:start;">
+                <div style="height:110px;">
+                    <canvas id="radarChart"></canvas>
+                </div>
+                <div style="overflow-x:auto;">
+                    <table class="sig-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th><th>MHz</th><th>Tip</th><th>SNR</th><th>Tehdit</th>
+                            </tr>
+                        </thead>
+                        <tbody id="sig-tbody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
 
-        // UI Controls logic
-        let currentMode = 'AUTO';
-        function setMode(mode) {
-            currentMode = mode;
-            document.getElementById('btn-auto').style.background = mode === 'AUTO' ? 'var(--accent)' : 'transparent';
-            document.getElementById('btn-auto').style.color = mode === 'AUTO' ? '#000' : '#fff';
-            document.getElementById('btn-auto').style.border = mode === 'AUTO' ? 'none' : '1px solid #555';
-            
-            document.getElementById('btn-manual').style.background = mode === 'MANUAL' ? 'var(--manual)' : 'transparent';
-            document.getElementById('btn-manual').style.color = mode === 'MANUAL' ? '#fff' : '#fff';
-            document.getElementById('btn-manual').style.border = mode === 'MANUAL' ? 'none' : '1px solid #555';
-            
-            const jamBtn = document.getElementById('btn-jam');
-            if(mode === 'MANUAL') {
-                jamBtn.disabled = false;
-                jamBtn.style.cursor = 'pointer';
-                jamBtn.style.background = 'transparent';
-                jamBtn.style.color = 'var(--manual)';
-                jamBtn.style.borderColor = 'var(--manual)';
-            } else {
-                jamBtn.disabled = true;
-                jamBtn.style.cursor = 'not-allowed';
-                jamBtn.style.background = '#333';
-                jamBtn.style.color = '#777';
-                jamBtn.style.borderColor = '#555';
-            }
-            
-            socket.emit('set_mode', { mode: mode });
-        }
+        <!-- Logs -->
+        <div class="panel">
+            <div class="panel-title">SİSTEM LOGLARI</div>
+            <div class="logs" id="logs"></div>
+        </div>
 
-        function setJam(isJamming) {
-            if (currentMode !== 'MANUAL') return;
-            const jamBtn = document.getElementById('btn-jam');
-            const jamStatus = document.getElementById('jam-status');
-            
-            if(isJamming) {
-                jamBtn.style.background = 'var(--manual)';
-                jamBtn.style.color = '#fff';
-                jamStatus.innerText = 'AKTİF';
-                jamStatus.style.color = 'var(--manual)';
-            } else {
-                jamBtn.style.background = 'transparent';
-                jamBtn.style.color = 'var(--manual)';
-                jamStatus.innerText = 'KAPALI';
-                jamStatus.style.color = '#555';
-            }
-            socket.emit('set_manual_jam', { is_jamming: isJamming });
-        }
+    </div>
+</main>
 
-        function setNoise(val) {
-            document.getElementById('noise-val').innerText = `${val} dB`;
-            socket.emit('set_noise_floor', { noise: val });
-        }
+<script>
+    const socket = io();
 
+    // ── Waterfall ───────────────────────────────────────────────────────────
+    const canvas = document.getElementById('waterfall-canvas');
+    const ctx    = canvas.getContext('2d');
+    const fftSize = 1024;
+    canvas.width  = fftSize;
+    canvas.height = 800;
+    let imgData   = ctx.createImageData(fftSize, 1);
 
-        // Waterfall setup
-        let fftSize = 1024;
-        canvas.width = fftSize;
-        canvas.height = 1000;
-        let imgData = ctx.createImageData(fftSize, 1);
+    // Frequency axis labels (433 MHz center, 2 MHz span)
+    const freqAxis = document.getElementById('wf-label-row');
+    const CENTER = 433.0, SPAN = 2.0;
+    const labels = [];
+    for (let i = 0; i <= 8; i++) {
+        const f = ((CENTER - SPAN/2) + (SPAN * i/8)).toFixed(2);
+        labels.push(`<span>${f}</span>`);
+    }
+    freqAxis.innerHTML = labels.join('') + '<span style="font-size:.58rem;color:#555;">MHz</span>';
 
-        // Chart.js Setup: Reward Line Chart
-        const rewardCtx = document.getElementById('rewardChart').getContext('2d');
-        const rewardChart = new Chart(rewardCtx, {
-            type: 'line',
-            data: {
-                labels: Array(20).fill(''),
-                datasets: [{
-                    label: 'RL Reward',
-                    data: Array(20).fill(0),
-                    borderColor: '#00f2ff',
-                    backgroundColor: 'rgba(0, 242, 255, 0.1)',
-                    borderWidth: 2,
-                    fill: true,
-                    tension: 0.4,
-                    pointRadius: 0
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: { legend: { display: false } },
-                scales: {
-                    x: { display: false },
-                    y: { 
-                        display: true, 
-                        grid: { color: 'rgba(255,255,255,0.05)' },
-                        ticks: { color: 'rgba(255,255,255,0.5)', font: { size: 10 } }
-                    }
-                },
-                animation: { duration: 0 }
-            }
-        });
-
-        // Chart.js Setup: Radar (AoA) Chart
-        const radarCtx = document.getElementById('radarChart').getContext('2d');
-        const radarChart = new Chart(radarCtx, {
-            type: 'radar',
-            data: {
-                labels: ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'],
-                datasets: [{
-                    label: 'Sinyal Yoğunluğu',
-                    data: [0,0,0,0,0,0,0,0],
-                    backgroundColor: 'rgba(255, 62, 62, 0.4)',
-                    borderColor: '#ff3e3e',
-                    pointBackgroundColor: '#fff',
-                    borderWidth: 1
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: { legend: { display: false } },
-                scales: {
-                    r: {
-                        angleLines: { color: 'rgba(255, 255, 255, 0.1)' },
-                        grid: { color: 'rgba(0, 242, 255, 0.2)' },
-                        pointLabels: { color: '#00f2ff', font: { size: 10 } },
-                        ticks: { display: false, max: 100 }
-                    }
-                },
-                animation: { duration: 200 }
-            }
-        });
-
-        socket.on('new_spectrum_data', (data) => {
-            // 1. Draw Waterfall row
-            const row = data.waterfall;
-            for (let i = 0; i < row.length; i++) {
-                // Enhancing color mapping for cyber look (Blue/Cyan/White)
-                const val = (row[i] + 100) * 2.55; 
-                if (val > 180) {
-                    imgData.data[i * 4] = 200; 
-                    imgData.data[i * 4 + 1] = 255; 
-                    imgData.data[i * 4 + 2] = 255; 
-                } else if (val > 100) {
-                    imgData.data[i * 4] = 0; 
-                    imgData.data[i * 4 + 1] = val + 50; 
-                    imgData.data[i * 4 + 2] = 255; 
-                } else {
-                    imgData.data[i * 4] = 0; 
-                    imgData.data[i * 4 + 1] = 10; 
-                    imgData.data[i * 4 + 2] = val * 0.8; 
+    // ── PSD Spectrum Chart ──────────────────────────────────────────────────
+    const psdCtx   = document.getElementById('psdChart').getContext('2d');
+    const psdData  = new Array(fftSize).fill(-100);
+    const psdChart = new Chart(psdCtx, {
+        type: 'line',
+        data: {
+            labels: psdData.map((_,i)=>i),
+            datasets: [{
+                data: psdData,
+                borderColor: '#00f2ff',
+                borderWidth: 1,
+                fill: true,
+                backgroundColor: 'rgba(0,242,255,0.07)',
+                pointRadius: 0,
+                tension: 0
+            }]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                x: { display: false },
+                y: {
+                    min: -110, max: -30,
+                    grid: { color: 'rgba(255,255,255,0.04)' },
+                    ticks: { color: 'rgba(255,255,255,0.4)', font: { size: 9 }, maxTicksLimit: 4 }
                 }
-                imgData.data[i * 4 + 3] = 255;
-            }
-            
-            ctx.globalCompositeOperation = "copy";
-            ctx.drawImage(canvas, 0, 0, fftSize, canvas.height - 1, 0, 1, fftSize, canvas.height - 1);
-            ctx.globalCompositeOperation = "source-over";
-            ctx.putImageData(imgData, 0, 0);
+            },
+            animation: { duration: 0 }
+        }
+    });
 
-            // 2. Update EW Status & Reward
-            const ea = data.ea_status;
-            eaStatusText.innerText = ea.status.toUpperCase();
-            if(data.sys_mode === 'MANUAL') {
-                eaStatusText.style.color = ea.is_jamming ? 'var(--manual)' : '#555';
+    // ── Reward Chart ────────────────────────────────────────────────────────
+    const rwCtx   = document.getElementById('rewardChart').getContext('2d');
+    const rwData  = new Array(40).fill(0);
+    const rewardChart = new Chart(rwCtx, {
+        type: 'line',
+        data: {
+            labels: rwData.map(()=>''),
+            datasets: [{
+                data: rwData,
+                borderColor: '#ffc107',
+                backgroundColor: 'rgba(255,193,7,0.08)',
+                borderWidth: 1.5, fill: true, tension: 0.4, pointRadius: 0
+            }]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                x: { display: false },
+                y: {
+                    grid: { color: 'rgba(255,255,255,0.04)' },
+                    ticks: { color: 'rgba(255,255,255,0.4)', font: { size: 9 }, maxTicksLimit: 3 }
+                }
+            },
+            animation: { duration: 0 }
+        }
+    });
+
+    // ── Radar (AoA) Chart ───────────────────────────────────────────────────
+    const radarCtx  = document.getElementById('radarChart').getContext('2d');
+    const radarChart = new Chart(radarCtx, {
+        type: 'radar',
+        data: {
+            labels: ['K','KD','D','GD','G','GB','B','KB'],
+            datasets: [{
+                data: [0,0,0,0,0,0,0,0],
+                backgroundColor: 'rgba(255,62,62,.35)',
+                borderColor: '#ff3e3e',
+                pointBackgroundColor: '#fff',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                r: {
+                    angleLines: { color: 'rgba(255,255,255,0.1)' },
+                    grid: { color: 'rgba(0,242,255,0.15)' },
+                    pointLabels: { color: '#00f2ff', font: { size: 9 } },
+                    ticks: { display: false, max: 100 }
+                }
+            },
+            animation: { duration: 150 }
+        }
+    });
+
+    // ── Threat color map ────────────────────────────────────────────────────
+    const THREAT_COLOR = {
+        LOW:      '#00ff88',
+        MEDIUM:   '#ffc107',
+        HIGH:     '#ff8c00',
+        CRITICAL: '#ff3e3e',
+    };
+
+    // ── Mode / Jam controls ─────────────────────────────────────────────────
+    let currentMode = 'AUTO';
+    function setMode(mode) {
+        currentMode = mode;
+        const btnA = document.getElementById('btn-auto');
+        const btnM = document.getElementById('btn-manual');
+        btnA.className = mode === 'AUTO'   ? 'ctrl active-auto'   : 'ctrl';
+        btnM.className = mode === 'MANUAL' ? 'ctrl active-manual' : 'ctrl';
+        const jamBtn = document.getElementById('btn-jam');
+        if (mode === 'MANUAL') {
+            jamBtn.disabled = false;
+            jamBtn.style.cursor  = 'pointer';
+            jamBtn.style.opacity = '1';
+            jamBtn.style.color   = 'var(--manual)';
+            jamBtn.style.borderColor = 'var(--manual)';
+        } else {
+            jamBtn.disabled = true;
+            jamBtn.style.cursor  = 'not-allowed';
+            jamBtn.style.opacity = '.4';
+            jamBtn.style.color   = '';
+            jamBtn.style.borderColor = '#555';
+        }
+        socket.emit('set_mode', { mode });
+    }
+
+    function setJam(isJamming) {
+        if (currentMode !== 'MANUAL') return;
+        const jamBtn   = document.getElementById('btn-jam');
+        const jamStatus = document.getElementById('jam-status');
+        jamBtn.style.background = isJamming ? 'var(--manual)' : 'transparent';
+        jamBtn.style.color      = isJamming ? '#fff' : 'var(--manual)';
+        jamStatus.innerText     = isJamming ? 'AKTİF' : 'KAPALI';
+        jamStatus.style.color   = isJamming ? 'var(--manual)' : '#555';
+        socket.emit('set_manual_jam', { is_jamming: isJamming });
+    }
+
+    function setNoise(val) {
+        document.getElementById('noise-val').innerText = `${val} dBm`;
+        socket.emit('set_noise_floor', { noise: val });
+    }
+
+    // ── Socket data handler ──────────────────────────────────────────────────
+    socket.on('new_spectrum_data', (data) => {
+        const row = data.waterfall;
+
+        // 1. Draw waterfall row (shift down, paint new row at top)
+        ctx.globalCompositeOperation = 'copy';
+        ctx.drawImage(canvas, 0, 0, fftSize, canvas.height - 1, 0, 1, fftSize, canvas.height - 1);
+        ctx.globalCompositeOperation = 'source-over';
+        for (let i = 0; i < fftSize; i++) {
+            const v = (row[i] + 100) * 2.55;
+            if (v > 180) {
+                imgData.data[i*4]   = 220;
+                imgData.data[i*4+1] = 255;
+                imgData.data[i*4+2] = 255;
+            } else if (v > 100) {
+                imgData.data[i*4]   = 0;
+                imgData.data[i*4+1] = Math.min(255, v + 55);
+                imgData.data[i*4+2] = 255;
             } else {
-                eaStatusText.style.color = ea.is_jamming ? 'var(--hazard)' : 'var(--success)';
+                imgData.data[i*4]   = 0;
+                imgData.data[i*4+1] = 12;
+                imgData.data[i*4+2] = Math.min(200, v * 0.8);
             }
-            
-            targetCountEl.innerText = ea.target_count;
-            totalRewardEl.innerText = ea.reward;
+            imgData.data[i*4+3] = 255;
+        }
+        ctx.putImageData(imgData, 0, 0);
 
-            // Update Reward Chart
-            const rData = rewardChart.data.datasets[0].data;
-            rData.shift();
-            rData.push(ea.reward);
-            rewardChart.update();
+        // 2. PSD chart (downsample to 256 points)
+        const step = 4;
+        const psdDS = [];
+        for (let i = 0; i < fftSize; i += step) psdDS.push(row[i]);
+        psdChart.data.datasets[0].data = psdDS;
+        psdChart.data.labels = psdDS.map((_,i)=>i);
+        psdChart.update('none');
 
-            // 3. Update Signal List & Radar
-            sigCount.innerText = data.signals.length;
-            signalList.innerHTML = '';
-            
-            // Reset radar data
-            let radarData = [0,0,0,0,0,0,0,0];
+        // 3. EA status
+        const ea = data.ea_status;
+        const ss = data.spectrum_stats || {};
+        const isJam = ea.is_jamming;
+        const statusColor = data.sys_mode === 'MANUAL'
+            ? (isJam ? 'var(--manual)' : '#555')
+            : (isJam ? 'var(--hazard)' : 'var(--success)');
+        document.getElementById('ea-status-text').innerText = ea.status.toUpperCase();
+        document.getElementById('ea-status-text').style.color = statusColor;
+        document.getElementById('action-badge').innerText = ea.action || 'STANDBY';
+        document.getElementById('target-count').innerText = ea.target_count;
+        document.getElementById('total-reward').innerText  = ea.reward;
+        document.getElementById('rl-eps').innerText        = (ea.epsilon || 1).toFixed(3);
+        document.getElementById('rl-eps-count').innerText  = ea.episode || 0;
 
-            let latestMod = "Gürültü";
-            data.signals.forEach(sig => {
-                const item = document.createElement('div');
-                item.className = 'signal-item';
-                item.innerHTML = `
-                    <div><strong style="color:var(--accent)">[${sig.track_id}] ${sig.type}</strong></div>
-                    <div style="text-align:right">${sig.snr.toFixed(1)} dB</div>
-                    <div style="font-size:0.7rem; opacity:0.6">RFI: ${sig.rfi_hash}</div>
-                    <div style="font-size:0.75rem; text-align:right;">AoA: ${sig.aoa.toFixed(1)}°</div>
-                `;
-                signalList.appendChild(item);
+        // Header
+        document.getElementById('h-targets').innerText = ea.target_count;
+        document.getElementById('h-reward').innerText  = ea.reward;
+        document.getElementById('h-eps').innerText     = (ea.epsilon || 1).toFixed(3);
 
-                const bin = Math.floor(((sig.aoa + 22.5) % 360) / 45);
-                radarData[bin] += sig.snr;
-                latestMod = sig.type;
-            });
+        // Spectrum occupancy
+        const occ = ss.occupancy_pct || 0;
+        document.getElementById('occ-pct').innerText   = occ + '%';
+        document.getElementById('occ-fill').style.width = Math.min(occ, 100) + '%';
+        document.getElementById('h-occ').innerText      = occ + '%';
 
-            const maxRadar = Math.max(...radarData, 1);
-            radarChart.data.datasets[0].data = radarData.map(v => (v / maxRadar) * 100);
-            radarChart.update();
+        // Reward chart
+        rwData.shift(); rwData.push(ea.reward);
+        rewardChart.update('none');
 
-            // 4. Add Logs
-            if (data.signals.length > 0 && Math.random() > 0.85) {
-                const log = document.createElement('div');
-                log.className = 'log-entry';
-                let action = ea.is_jamming ? 'TAARRUZ/DB KAYDI' : 'TDOA KESTİRİMİ';
-                log.innerHTML = `<span>[${new Date().toLocaleTimeString()}]</span> ${latestMod} tespiti. ${action}`;
-                logs.prepend(log);
-                if (logs.children.length > 30) logs.removeChild(logs.lastChild);
-            }
+        // 4. Signal table + radar
+        const tbody = document.getElementById('sig-tbody');
+        tbody.innerHTML = '';
+        document.getElementById('sig-count').innerText = data.signals.length + ' sinyal';
+
+        let radarBins = [0,0,0,0,0,0,0,0];
+        let logEntry  = null;
+
+        data.signals.forEach(sig => {
+            const tr  = document.createElement('tr');
+            const tc  = THREAT_COLOR[sig.threat_level] || '#fff';
+            const conf = sig.confidence ? Math.round(sig.confidence * 100) : '?';
+            tr.innerHTML = `
+                <td style="color:var(--accent);font-size:.67rem;">${sig.track_id||'N/A'}</td>
+                <td style="font-weight:600;">${sig.freq_mhz||'?'}</td>
+                <td><span style="color:${tc}">${sig.type}</span> <span style="opacity:.5;font-size:.63rem;">${conf}%</span></td>
+                <td style="color:${sig.snr>30?'var(--hazard)':sig.snr>15?'var(--warn)':'var(--dim)'};">${sig.snr}</td>
+                <td><span class="threat threat-${sig.threat_level}">${sig.threat_level}</span></td>
+            `;
+            tbody.appendChild(tr);
+
+            const bin = Math.floor(((sig.aoa + 22.5) % 360) / 45);
+            radarBins[bin] += sig.snr;
+            logEntry = sig;
         });
-    </script>
+
+        const maxR = Math.max(...radarBins, 1);
+        radarChart.data.datasets[0].data = radarBins.map(v => (v / maxR) * 100);
+        radarChart.update('none');
+
+        // 5. Logs
+        if (logEntry && Math.random() > 0.82) {
+            const logEl = document.createElement('div');
+            logEl.className = 'log-entry';
+            const action = isJam ? `[${ea.action}]` : '[TARAMA]';
+            logEl.innerHTML = `<span>[${new Date().toLocaleTimeString()}]</span> ${logEntry.type} @${logEntry.freq_mhz}MHz SNR=${logEntry.snr}dB ${action} Tehdit=${logEntry.threat_level}`;
+            document.getElementById('logs').prepend(logEl);
+            const logs = document.getElementById('logs');
+            if (logs.children.length > 35) logs.removeChild(logs.lastChild);
+        }
+    });
+</script>
 </body>
 </html>

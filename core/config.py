@@ -1,16 +1,11 @@
-# System Configuration for Otonom Elektronik Harp Sistemi
-
-# SDR / RF Parameters
-SAMPLING_RATE = 2.0e6  # 2 MHz
-CENTER_FREQ = 433.0e6  # 433 MHz (Example ISM Band)
+SAMPLING_RATE = 2.0e6
+CENTER_FREQ = 433.0e6
 FFT_SIZE = 1024
 
-# Simulation Parameters
-NOISE_FLOOR = -100  # dBm
+NOISE_FLOOR = -100
 SIGNAL_STRENGTH_MIN = -80
 SIGNAL_STRENGTH_MAX = -20
 
-# Module Flags
 MODULES = {
     "detector": True,
     "classifier": True,
@@ -19,7 +14,34 @@ MODULES = {
     "optimizer": True
 }
 
-# UI Parameters
 UI_HOST = '0.0.0.0'
 UI_PORT = 5000
 UPDATE_INTERVAL_MS = 100
+
+RL_ALPHA = 0.15
+RL_GAMMA = 0.92
+RL_EPSILON_START = 1.0
+RL_EPSILON_MIN = 0.05
+RL_EPSILON_DECAY = 0.997
+RL_ACTIONS = ["STANDBY", "JAM_SPOT", "JAM_BARRAGE", "LOOK_THROUGH", "DECEPTIVE_JAM"]
+
+KALMAN_PROCESS_NOISE_FREQ = 0.8
+KALMAN_PROCESS_NOISE_AOA = 2.0
+KALMAN_MEAS_NOISE_FREQ = 4.0
+KALMAN_MEAS_NOISE_AOA = 8.0
+TRACKER_DISTANCE_THRESHOLD = 25.0
+TRACKER_MAX_AGE = 6
+
+THREAT_MAP = {
+    "BPSK":   "MEDIUM",
+    "QPSK":   "HIGH",
+    "16QAM":  "HIGH",
+    "AM":     "LOW",
+    "FM":     "LOW",
+    "LoRa":   "MEDIUM",
+    "Radar":  "CRITICAL",
+    "Noise":  "LOW",
+}
+
+DETECTOR_THRESHOLD_DB = 15
+DETECTOR_HISTORY_LEN = 14

@@ -1,7 +1,8 @@
 import csv
 import io
+import json
 import sqlite3
-from flask import Flask, render_template, Response
+from flask import Flask, render_template, Response, jsonify
 from flask_socketio import SocketIO, emit
 import threading
 import time
@@ -12,68 +13,79 @@ app = Flask(__name__)
 socketio = SocketIO(app, cors_allowed_origins="*")
 orchestrator = SystemOrchestrator()
 
+
 @app.route('/')
 def index():
     return render_template('index.html')
 
+
 @app.route('/api/export_report')
 def export_report():
-    """Generates a CSV report from the mission_log.db signals table."""
-    si = io.StringIO()
-    cw = csv.writer(si)
-    cw.writerow(['ID', 'Timestamp', 'Freq_Idx', 'SNR', 'Type', 'AoA', 'Track_ID', 'RFI_Hash'])
-    
+    si  = io.StringIO()
+    cw  = csv.writer(si)
+    cw.writerow(['ID', 'Timestamp', 'Freq_Idx', 'Freq_MHz', 'SNR', 'Type',
+                 'Confidence', 'Threat', 'AoA', 'Track_ID', 'RFI_Hash'])
     try:
         with sqlite3.connect("logs/mission_log.db") as conn:
             cursor = conn.cursor()
-            # Fetch all signals
-            cursor.execute("SELECT id, timestamp, freq_idx, snr, type, aoa, track_id, rfi_hash FROM signals ORDER BY timestamp DESC")
+            cursor.execute(
+                "SELECT id, timestamp, freq_idx, snr, type, aoa, track_id, rfi_hash "
+                "FROM signals ORDER BY timestamp DESC"
+            )
             rows = cursor.fetchall()
             cw.writerows(rows)
     except Exception as e:
-        print(f"Error exporting DB: {e}")
         cw.writerow(["Error", str(e)])
-
-    output = si.getvalue()
     return Response(
-        output,
+        si.getvalue(),
         mimetype="text/csv",
-        headers={"Content-disposition": "attachment; filename=aar_mission_report.csv"}
+        headers={"Content-disposition": "attachment; filename=aar_mission_report.csv"},
     )
+
+
+@app.route('/api/stats')
+def get_stats():
+    r = orchestrator.latest_results
+    if not r:
+        return jsonify({})
+    ea = r.get('ea_status', {})
+    ss = r.get('spectrum_stats', {})
+    return jsonify({
+        "target_count":    ea.get('target_count', 0),
+        "total_reward":    ea.get('reward', 0),
+        "epsilon":         ea.get('epsilon', 1.0),
+        "episode":         ea.get('episode', 0),
+        "q_states":        ea.get('q_states', 0),
+        "occupancy_pct":   ss.get('occupancy_pct', 0),
+        "peak_pwr_dbm":    ss.get('peak_pwr_dbm', -100),
+        "active_sigs":     ss.get('active_sigs', 0),
+        "current_action":  ea.get('action', 'STANDBY'),
+    })
 
 
 @socketio.on('set_mode')
 def handle_set_mode(data):
-    mode = data.get('mode', 'AUTO')
-    orchestrator.mode = mode
-    print(f"System Mode Changed to: {mode}")
+    orchestrator.mode = data.get('mode', 'AUTO')
 
 @socketio.on('set_manual_jam')
 def handle_manual_jam(data):
     if orchestrator.mode == 'MANUAL':
-        is_jam = data.get('is_jamming', False)
-        orchestrator.manual_jam = is_jam
-        print(f"Manual Jamming: {is_jam}")
+        orchestrator.manual_jam = data.get('is_jamming', False)
 
 @socketio.on('set_noise_floor')
 def handle_noise_floor(data):
-    noise = float(data.get('noise', -100))
-    orchestrator.env.noise_floor = noise
-    print(f"Noise Floor Changed to: {noise} dB")
+    orchestrator.env.noise_floor = float(data.get('noise', -100))
 
 
 def background_thread():
-    """Continuously runs the EW cycle and broadcasts to UI."""
-    print("Dashboard data stream started...")
     while True:
         results = orchestrator.run_cycle()
         socketio.emit('new_spectrum_data', results)
         time.sleep(UPDATE_INTERVAL_MS / 1000.0)
 
+
 if __name__ == '__main__':
-    thread = threading.Thread(target=background_thread)
-    thread.daemon = True
-    thread.start()
-    
-    print(f"Starting Otonom-EH Dashboard at http://localhost:{UI_PORT}")
+    t = threading.Thread(target=background_thread, daemon=True)
+    t.start()
+    print(f"Otonom-EH Dashboard: http://localhost:{UI_PORT}")
     socketio.run(app, host=UI_HOST, port=UI_PORT, debug=False)
