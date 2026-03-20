@@ -8,9 +8,47 @@ import time
 from core.orchestrator import SystemOrchestrator
 from core.config import UI_HOST, UI_PORT, UPDATE_INTERVAL_MS
 
+import subprocess
+import os
+import signal
+
 app          = Flask(__name__)
 socketio     = SocketIO(app, cors_allowed_origins="*")
 orchestrator = SystemOrchestrator()
+
+# --- Simulation Management ---
+sim_proc = None
+
+def start_external_simulator():
+    global sim_proc
+    if sim_proc and sim_proc.poll() is None:
+        return # Already running
+    
+    env_path = os.getcwd()
+    # Use the same python executable and set PYTHONPATH
+    my_env = os.environ.copy()
+    my_env["PYTHONPATH"] = env_path + os.pathsep + my_env.get("PYTHONPATH", "")
+    
+    script_path = os.path.join(env_path, "sim", "external_signals_source.py")
+    try:
+        sim_proc = subprocess.Popen(
+            [sys.executable, script_path],
+            env=my_env,
+            creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if os.name == 'nt' else 0
+        )
+    except Exception as e:
+        print(f"[!] Simülatör başlatma hatası: {e}")
+
+def stop_external_simulator():
+    global sim_proc
+    if sim_proc:
+        if os.name == 'nt':
+            subprocess.call(['taskkill', '/F', '/T', '/PID', str(sim_proc.pid)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        else:
+            sim_proc.terminate()
+        sim_proc = None
+
+import sys
 
 
 @app.route('/')
@@ -99,6 +137,19 @@ def handle_noise_floor(data):
 @socketio.on('set_denoiser')
 def handle_denoiser(data):
     orchestrator.denoiser_on = bool(data.get('enabled', True))
+
+
+@socketio.on('control_sim')
+def handle_sim_control(data):
+    cmd = data.get('command')
+    if cmd == 'START':
+        start_external_simulator()
+    elif cmd == 'STOP':
+        stop_external_simulator()
+    elif cmd == 'RESTART':
+        stop_external_simulator()
+        time.sleep(0.5)
+        start_external_simulator()
 
 
 # ── Background emitter ────────────────────────────────────────────────────────

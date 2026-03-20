@@ -21,17 +21,26 @@ class KalmanFilter1D:
         self.P = self.F @ self.P @ self.F.T + self.Q
         return self.x[0]
 
-    def update(self, measurement):
-        y = measurement - self.H @ self.x
+    def update(self, measurement, is_angle=False):
+        if is_angle:
+            y_val = (measurement - self.H @ self.x + 180) % 360 - 180
+            y = np.array([y_val])
+        else:
+            y = measurement - self.H @ self.x
+            
         S = self.H @ self.P @ self.H.T + self.R
         K = self.P @ self.H.T / S[0, 0]
-        self.x = self.x + K * y[0]
+        self.x = self.x + (K * y[0]).flatten()
+        
+        if is_angle:
+            self.x[0] = self.x[0] % 360
+            
         self.P = (np.eye(2) - np.outer(K, self.H)) @ self.P
         return self.x[0]
 
     @property
     def velocity(self):
-        return self.x[1]
+        return float(self.x[1])
 
 
 class KalmanTracker:
@@ -77,12 +86,13 @@ class KalmanTracker:
             if best_id is not None:
                 t = self.tracks[best_id]
                 t['kf_freq'].update(float(det['freq_idx']))
-                t['kf_aoa'].update(float(det['aoa']))
+                filtered_aoa = t['kf_aoa'].update(float(det['aoa']), is_angle=True)
                 t['age'] = 0
                 t['hit_count'] = t.get('hit_count', 0) + 1
                 updated_ids.add(best_id)
                 det['track_id']      = f"TRK-{best_id:04d}"
                 det['track_hits']    = t['hit_count']
+                det['aoa']           = round(filtered_aoa, 1)
                 det['freq_velocity'] = round(t['kf_freq'].velocity, 3)
             else:
                 nid = self.next_id

@@ -5,3 +5,4 @@ flask
 flask-socketio
 opencv-python
 torch
+eventlet
