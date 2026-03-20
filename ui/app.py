@@ -1,16 +1,15 @@
 import csv
 import io
-import json
 import sqlite3
 from flask import Flask, render_template, Response, jsonify
-from flask_socketio import SocketIO, emit
+from flask_socketio import SocketIO
 import threading
 import time
 from core.orchestrator import SystemOrchestrator
 from core.config import UI_HOST, UI_PORT, UPDATE_INTERVAL_MS
 
-app = Flask(__name__)
-socketio = SocketIO(app, cors_allowed_origins="*")
+app          = Flask(__name__)
+socketio     = SocketIO(app, cors_allowed_origins="*")
 orchestrator = SystemOrchestrator()
 
 
@@ -21,19 +20,20 @@ def index():
 
 @app.route('/api/export_report')
 def export_report():
-    si  = io.StringIO()
-    cw  = csv.writer(si)
+    si = io.StringIO()
+    cw = csv.writer(si)
     cw.writerow(['ID', 'Timestamp', 'Freq_Idx', 'Freq_MHz', 'SNR', 'Type',
-                 'Confidence', 'Threat', 'AoA', 'Track_ID', 'RFI_Hash'])
+                 'Confidence', 'Threat', 'AoA', 'DF_Confidence',
+                 'Track_ID', 'Track_Hits', 'RFI_Hash'])
     try:
         with sqlite3.connect("logs/mission_log.db") as conn:
-            cursor = conn.cursor()
-            cursor.execute(
-                "SELECT id, timestamp, freq_idx, snr, type, aoa, track_id, rfi_hash "
+            c = conn.cursor()
+            c.execute(
+                "SELECT id, timestamp, freq_idx, freq_mhz, snr, type, confidence, "
+                "threat_level, aoa, df_confidence, track_id, track_hits, rfi_hash "
                 "FROM signals ORDER BY timestamp DESC"
             )
-            rows = cursor.fetchall()
-            cw.writerows(rows)
+            cw.writerows(c.fetchall())
     except Exception as e:
         cw.writerow(["Error", str(e)])
     return Response(
@@ -51,32 +51,57 @@ def get_stats():
     ea = r.get('ea_status', {})
     ss = r.get('spectrum_stats', {})
     return jsonify({
-        "target_count":    ea.get('target_count', 0),
-        "total_reward":    ea.get('reward', 0),
-        "epsilon":         ea.get('epsilon', 1.0),
-        "episode":         ea.get('episode', 0),
-        "q_states":        ea.get('q_states', 0),
-        "occupancy_pct":   ss.get('occupancy_pct', 0),
-        "peak_pwr_dbm":    ss.get('peak_pwr_dbm', -100),
-        "active_sigs":     ss.get('active_sigs', 0),
-        "current_action":  ea.get('action', 'STANDBY'),
+        "target_count":   ea.get('target_count', 0),
+        "total_reward":   ea.get('reward', 0),
+        "epsilon":        ea.get('epsilon', 1.0),
+        "episode":        ea.get('episode', 0),
+        "q_states":       ea.get('q_states', 0),
+        "occupancy_pct":  ss.get('occupancy_pct', 0),
+        "peak_pwr_dbm":   ss.get('peak_pwr_dbm', -100),
+        "active_sigs":    ss.get('active_sigs', 0),
+        "current_action": ea.get('action', 'STANDBY'),
+        "rf_source":      ss.get('rf_source', 'LOCAL'),
+        "denoiser_on":    ss.get('denoiser_on', True),
     })
 
 
+@app.route('/api/history')
+def get_history():
+    return jsonify(orchestrator.logger.get_recent_signals(50))
+
+
+@app.route('/api/threats')
+def get_threats():
+    return jsonify({
+        "threat_stats": orchestrator.logger.get_threat_stats(300),
+        "type_stats":   orchestrator.logger.get_type_stats(300),
+        "actions":      orchestrator.logger.get_action_history(20),
+    })
+
+
+# ── Socket events ─────────────────────────────────────────────────────────────
 @socketio.on('set_mode')
 def handle_set_mode(data):
     orchestrator.mode = data.get('mode', 'AUTO')
+
 
 @socketio.on('set_manual_jam')
 def handle_manual_jam(data):
     if orchestrator.mode == 'MANUAL':
         orchestrator.manual_jam = data.get('is_jamming', False)
 
+
 @socketio.on('set_noise_floor')
 def handle_noise_floor(data):
     orchestrator.env.noise_floor = float(data.get('noise', -100))
 
 
+@socketio.on('set_denoiser')
+def handle_denoiser(data):
+    orchestrator.denoiser_on = bool(data.get('enabled', True))
+
+
+# ── Background emitter ────────────────────────────────────────────────────────
 def background_thread():
     while True:
         results = orchestrator.run_cycle()
