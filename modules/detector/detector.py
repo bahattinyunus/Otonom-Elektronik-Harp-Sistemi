@@ -28,12 +28,17 @@ class WaterfallDetector:
         # Scale SNR (0 to 60dB) to Pixel intensity (0 to 255)
         img = np.clip(mat_snr * (255.0 / 60.0), 0, 255).astype(np.uint8)
         
-        # 3. Apply OpenCV thresholding
-        thresh_val = self.threshold * (255.0 / 60.0)
-        _, thresh_img = cv2.threshold(img, thresh_val, 255, cv2.THRESH_BINARY)
+        # 3. Apply Computer Vision Processing
+        # Adaptive Threshold: local mean + constant subtraction
+        # This helps in detecting signals in varying noise levels
+        thresh_img = cv2.adaptiveThreshold(
+            img, 255, cv2.ADAPTIVE_THRESH_MEAN_C, 
+            cv2.THRESH_BINARY, 11, -self.threshold * (255.0 / 60.0)
+        )
         
-        # Optional: Morphological operations could go here to bridge gaps
-        # thresh_img = cv2.morphologyEx(thresh_img, cv2.MORPH_CLOSE, np.ones((3,3),np.uint8))
+        # Morphological Closing: Join fragmented signal blobs (caused by fading)
+        kernel = np.ones((3, 3), np.uint8)
+        thresh_img = cv2.morphologyEx(thresh_img, cv2.MORPH_CLOSE, kernel)
         
         # 4. Find Contours (Signal Blobs)
         contours, _ = cv2.findContours(thresh_img, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)

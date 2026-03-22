@@ -74,6 +74,7 @@ class RFEnvironment:
         return psd.tolist()
 
     def _local_simulate(self):
+        # 1. Base thermal noise floor
         noise = (np.random.normal(0, 1, self.fft_size) +
                  1j * np.random.normal(0, 1, self.fft_size))
         psd = 10 * np.log10(np.abs(np.fft.fftshift(np.fft.fft(noise, n=self.fft_size))) ** 2 + 1e-12)
@@ -82,16 +83,33 @@ class RFEnvironment:
         if np.random.rand() > 0.93:
             self._spawn_random_signal()
 
+        now = time.time()
         for sig in self.active_signals[:]:
+            # 2. Sequential behavior logic
             if sig.get('hopping', False) and np.random.rand() > 0.8:
                 sig['freq'] = self.center_freq + (np.random.rand() - 0.5) * self.fs * 0.8
+            
+            # 3. FMCW / Chirp logic: frequency sweeps over time
+            current_freq = sig['freq']
+            if sig.get('type') == 'Radar' and sig.get('fmcw', False):
+                # Linear sweep: start_freq + (k * t mod sweep_duration)
+                sweep_range = sig.get('sweep_hz', 500e3)
+                period = sig.get('sweep_period', 2.0)
+                offset = (now % period) / period
+                current_freq += (offset - 0.5) * sweep_range
 
-            fading      = 1.0 + 0.2 * np.sin(time.time() * 10.0 + sig.get('phase_offset', 0))
+            # 4. Multipath Fading: simulate time-variant signal fluctuation
+            # simple model: I + Q where Q is a delayed/phase-shifted reflection
+            distort_phase = (now * 5.0) + sig.get('phase_offset', 0)
+            fading = 1.0 + 0.3 * np.sin(distort_phase) # Reflection interference simulation
+            
             current_amp = sig['amplitude'] * fading
-            freq_idx    = int((sig['freq'] - (self.center_freq - self.fs / 2)) / (self.fs / self.fft_size))
+            freq_idx    = int((current_freq - (self.center_freq - self.fs / 2)) / (self.fs / self.fft_size))
+            
             if 0 <= freq_idx < self.fft_size:
                 width = sig['bw'] / (self.fs / self.fft_size)
                 x     = np.arange(self.fft_size)
+                # Gaussian pulse representation
                 peak  = current_amp * np.exp(-((x - freq_idx) ** 2) / (2 * (width / 2) ** 2))
                 psd   = np.maximum(psd, self.noise_floor + peak)
 
@@ -125,15 +143,22 @@ class RFEnvironment:
         mod_types = ["BPSK", "QPSK", "AM", "FM", "LoRa", "Radar"]
         weights   = [0.25, 0.20, 0.15, 0.15, 0.15, 0.10]
         sig_type  = random.choices(mod_types, weights=weights, k=1)[0]
+        
         amplitude = np.random.uniform(35, 65) if sig_type == "Radar" else np.random.uniform(20, 55)
         bw        = np.random.uniform(5e3, 30e3) if sig_type == "Radar" else np.random.uniform(10e3, 100e3)
+        
+        is_fmcw = (sig_type == "Radar") and (random.random() > 0.4)
+        
         self.active_signals.append({
             "freq":           self.center_freq + (np.random.rand() - 0.5) * self.fs * 0.8,
             "bw":             bw,
             "amplitude":      amplitude,
             "type":           sig_type,
             "duration":       np.random.uniform(1.5, 9),
-            "hopping":        np.random.rand() > 0.7,
+            "hopping":        np.random.rand() > 0.7 if not is_fmcw else False,
+            "fmcw":           is_fmcw,
+            "sweep_hz":       np.random.uniform(200e3, 800e3),
+            "sweep_period":   np.random.uniform(1.0, 4.0),
             "phase_offset":   np.random.uniform(0, 2 * np.pi),
             "phase_noise":    np.random.uniform(0.01, 0.2),
             "carrier_offset": np.random.uniform(-500, 500),

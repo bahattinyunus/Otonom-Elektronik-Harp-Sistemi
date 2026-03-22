@@ -1,10 +1,10 @@
-# 📡 Otonom Elektronik Harp Sistemi (Cognitive-EW-Suite) v3.0
+# 📡 Otonom Elektronik Harp Sistemi (Cognitive-EW-Suite) v4.0
 
 ![Otonom EW Suite Banner](banner.png)
 
-![Version](https://img.shields.io/badge/version-3.0.0-blue.svg)
+![Version](https://img.shields.io/badge/version-4.0.0-blue.svg)
 ![TEKNOFEST](https://img.shields.io/badge/TEKNOFEST-2026-red.svg)
-![Status](https://img.shields.io/badge/TRL-8-success.svg)
+![Status](https://img.shields.io/badge/TRL-8.5-success.svg)
 ![AI Level](https://img.shields.io/badge/Cognitive_AI-Deep_Learning_%26_RL-orange.svg)
 
 **Otonom Elektronik Harp Sistemi (Cognitive-EW-Suite)**, modern elektronik harp (EH) ve elektromanyetik spektrum operasyonlarında (EMSO) Derin Öğrenme (Deep Learning) ve Pekiştirmeli Öğrenme (Reinforcement Learning) metodolojilerini spektral analiz süreçlerine entegre eden otonom bir Bilişsel Elektronik Harp (Cognitive EW) platformudur.
@@ -25,10 +25,16 @@ Bu araştırma / prototip projesi, Elektronik Destek (ES) ile tespit edilen elek
 
 Sistem, elektromanyetik spektrumdaki sinyal tespiti, sınıflandırma ve taarruz optimizasyonu görevlerini birbirinden bağımsız çalışan, ancak eşgüdümlü karar alan üç ana AI/ML işlem bloğuna ayırmıştır:
 
-### 1. Spektral Görü İşleme ve Anomali Tespiti (Computer Vision)
-Klasik enerji tabanlı eşik (Threshold) tespiti yerine spektrum, 2 boyutlu bir zaman-frekans şelalesi (Waterfall Spectrogram) olarak analiz edilir.
-- **OpenCV & Canny Edge Algoritmaları:** SDR modülünden akan PSD (Power Spectral Density) verileri `uint8` gri tonlamalı imaj matrislerine dönüştürülür.
+### 1. Spektral Görü İşleme ve Anomali Tespiti (V4 Adaptive CV)
+Klasik enerji tabanlı eşik (Threshold) tespiti yerine spektrum, 2 boyutlu bir zaman-frekans şelalesi (Waterfall Spectrogram) olarak analiz edilir. v4.0 ile birlikte dedektör çok daha robust hale getirilmiştir:
+- **Adaptive Thresholding:** `cv2.adaptiveThreshold` kullanılarak yerel gürültü ortalamasına göre dinamik eşikleme yapılır. Bu sayede spektrumun farklı bölgelerindeki gürültü varyasyonlarından etkilenmez.
+- **Morphological Closing:** Sönümlenmiş (faded) veya parçalı sinyal bloklarını `cv2.MORPH_CLOSE` ile birleştirerek tekil hedef sürekliliğini sağlar.
 - **Sinyal Morfolojisi Analizi:** Sistem, `cv2.findContours` fonksiyonları kullanılarak atmosferik solma (Atmospheric Fading) ve çevresel gürültünün yarattığı dezenformasyon filtreleyerek sinyal adacıklarının (blobs) merkez frekansını, bant genişliğini ve SNR marjını otonom olarak hesaplar.
+
+### 2. İleri Seviye RF Simülasyonu (V4 Complex Environment)
+Simülasyon ortamı, laboratuvar koşullarından gerçek harekat ortamına yaklaştırılmıştır:
+- **FMCW (Chirp) Radarlar:** Frekansı zamanla doğrusal olarak değişen (LFM) radar sinyalleri simüle edilir.
+- **Multipath Fading Model:** Sinyallerin yansıma ve faz farkı kaynaklı sönümlenmelerini (fading) simüle eden matematiksel model entegre edilmiştir.
 
 ## 🧠 Bilişsel Yapay Zeka Mimarisi (Phase 3)
 
