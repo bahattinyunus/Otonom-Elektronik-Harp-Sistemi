@@ -1,62 +1,129 @@
 import random
 import numpy as np
+import torch
+import torch.nn as nn
+import torch.optim as optim
+from collections import deque
 from core.config import (RL_ALPHA, RL_GAMMA, RL_EPSILON_START, RL_EPSILON_MIN, 
                           RL_EPSILON_DECAY, RL_ACTIONS)
+
+class DQNNet(nn.Module):
+    def __init__(self, input_size, num_actions):
+        super(DQNNet, self).__init__()
+        self.net = nn.Sequential(
+            nn.Linear(input_size, 32),
+            nn.ReLU(),
+            nn.Linear(32, 16),
+            nn.ReLU(),
+            nn.Linear(16, num_actions)
+        )
+
+    def forward(self, x):
+        return self.net(x)
 
 class SmartOptimizer:
     """
     Cognitive ET Strategy Optimizer.
-    Now uses an expanded state-space (DQN-ready) including threat sequence predictions.
+    Uses an expanded state-space (DQN) including threat sequence predictions.
     """
     def __init__(self):
-        self.q_table = {}
-        self.alpha = RL_ALPHA
+        self.actions = RL_ACTIONS
+        self.state_size = 4 # [critical_count, high_count, has_pred, total_signals]
+        
+        # Hyperparameters
         self.gamma = RL_GAMMA
         self.epsilon = RL_EPSILON_START
-        self.actions = RL_ACTIONS
+        self.epsilon_min = RL_EPSILON_MIN
+        self.epsilon_decay = RL_EPSILON_DECAY
+        self.batch_size = 16
+        
+        # DQN Model Setup
+        self.model = DQNNet(self.state_size, len(self.actions))
+        self.optimizer = optim.Adam(self.model.parameters(), lr=0.005)
+        self.criterion = nn.MSELoss()
+        
+        # Experience Replay
+        self.memory = deque(maxlen=2000)
+        
+        # Episode trackers
         self.total_reward = 0
         self.episode_count = 0
         self.prev_state = None
         self.prev_action_idx = None
         
     def _get_state(self, signals):
-        # Expanded state vector for Deep Learning compatibility
-        if not signals: return "IDLE"
+        # Convert signals mapping to numeric state vector for DQN
+        if not signals: 
+            return np.array([0, 0, 0, 0], dtype=np.float32)
         
-        # Feature extraction: Threat counts and prediction status
         crit_count = sum(1 for s in signals if s.get('threat_level') == 'CRITICAL')
-        has_pred   = sum(1 for s in signals if 'predicted_next_mhz' in s)
+        high_count = sum(1 for s in signals if s.get('threat_level') == 'HIGH')
+        has_pred   = 1 if any('predicted_next_mhz' in s for s in signals) else 0
+        total      = len(signals)
         
-        # Build state key (discretized for Q-table, but ready for Tensor conversion)
-        state_key = f"C{crit_count}_P{has_pred}"
-        return state_key
+        return np.array([crit_count, high_count, has_pred, total], dtype=np.float32)
+
+    def remember(self, state, action_idx, reward, next_state):
+        self.memory.append((state, action_idx, reward, next_state))
+
+    def replay(self):
+        if len(self.memory) < self.batch_size:
+            return
+            
+        minibatch = random.sample(self.memory, self.batch_size)
+        
+        states = torch.tensor(np.array([m[0] for m in minibatch]), dtype=torch.float32)
+        actions = torch.tensor([m[1] for m in minibatch], dtype=torch.long)
+        rewards = torch.tensor([m[2] for m in minibatch], dtype=torch.float32)
+        next_states = torch.tensor(np.array([m[3] for m in minibatch]), dtype=torch.float32)
+        
+        # Current Q values
+        q_values = self.model(states)
+        
+        # Next Q values
+        next_q_values = self.model(next_states).detach()
+        max_next_q = next_q_values.max(1)[0]
+        
+        # Expected Q values using Bellman
+        target_q_values = q_values.clone()
+        for i in range(self.batch_size):
+            target_q_values[i, actions[i]] = rewards[i] + self.gamma * max_next_q[i]
+            
+        loss = self.criterion(q_values, target_q_values)
+        
+        self.optimizer.zero_grad()
+        loss.backward()
+        self.optimizer.step()
 
     def update_strategy(self, signals):
         self.episode_count += 1
         current_state = self._get_state(signals)
         
-        # Exploration vs Exploitation
+        # Epsilon-greedy action selection
         if random.random() < self.epsilon:
             action_idx = random.randint(0, len(self.actions) - 1)
         else:
-            action_idx = self._get_best_action(current_state)
+            state_tensor = torch.tensor(current_state, dtype=torch.float32).unsqueeze(0)
+            self.model.eval()
+            with torch.no_grad():
+                q_values = self.model(state_tensor)
+            self.model.train()
+            action_idx = torch.argmax(q_values).item()
             
         action = self.actions[action_idx]
         
-        # Reward calculation: based on prediction accuracy and threat mitigation
+        # Measure reward based on system threat effectiveness
         reward = self._calculate_reward(signals, action)
         self.total_reward += reward
         
-        # Q-Learning update (Bellman)
+        # Save memory and train network
         if self.prev_state is not None:
-            old_q = self.q_table.get((self.prev_state, self.prev_action_idx), 0.0)
-            next_max_q = max([self.q_table.get((current_state, a), 0.0) for a in range(len(self.actions))])
-            new_q = old_q + self.alpha * (reward + self.gamma * next_max_q - old_q)
-            self.q_table[(self.prev_state, self.prev_action_idx)] = new_q
+            self.remember(self.prev_state, self.prev_action_idx, reward, current_state)
+            self.replay()
             
-        # Decay epsilon
-        if self.epsilon > RL_EPSILON_MIN:
-            self.epsilon *= RL_EPSILON_DECAY
+        # Decay exploration
+        if self.epsilon > self.epsilon_min:
+            self.epsilon *= self.epsilon_decay
             
         self.prev_state = current_state
         self.prev_action_idx = action_idx
@@ -67,27 +134,22 @@ class SmartOptimizer:
             "reward": round(self.total_reward, 1),
             "epsilon": round(self.epsilon, 3),
             "episode": self.episode_count,
-            "target_count": len(signals)
+            "target_count": len(signals),
+            "q_states": len(self.memory) # Reflecting replay buffer capacity now instead of table
         }
-
-    def _get_best_action(self, state):
-        qs = [self.q_table.get((state, a), 0.0) for a in range(len(self.actions))]
-        return int(np.argmax(qs))
 
     def _calculate_reward(self, signals, action):
         if not signals:
             return 1.0 if action == "STANDBY" else -0.5
         
-        # High reward for LOOK_THROUGH if signals are complex
+        # Exploration reward logic
         if action == "LOOK_THROUGH" and len(signals) > 2:
             return 15.0
         
-        # High reward for jamming critical targets
         has_crit = any(s.get('threat_level') == 'CRITICAL' for s in signals)
-        if has_crit and action in ["JAM_SPOT", "JAM_BARRAGE"]:
+        if has_crit and action in ["JAM_SPOT", "JAM_BARRAGE", "DECEPTIVE_JAM"]:
             return 25.0
             
-        # Bonus for having signal predictions
         if any('predicted_next_mhz' in s for s in signals):
             return 5.0
             

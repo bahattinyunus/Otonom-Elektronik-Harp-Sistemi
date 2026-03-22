@@ -103,7 +103,7 @@ class SystemOrchestrator:
                 "latest_reward_delta": 0,
                 "epsilon":             self.optimizer.epsilon,
                 "episode":             self.optimizer.episode_count,
-                "q_states":            len(self.optimizer.q_table),
+                "q_states":            len(self.optimizer.memory),
             }
             self.env.set_jamming("JAM_SPOT" if is_jam else "STANDBY")
 

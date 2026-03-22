@@ -4,9 +4,9 @@ import numpy as np
 from collections import deque
 
 class HopLSTM(nn.Module):
-    def __init__(self, input_size=1, hidden_size=32, num_layers=1):
+    def __init__(self, input_size=1, hidden_size=32, num_layers=2):
         super(HopLSTM, self).__init__()
-        self.lstm = nn.LSTM(input_size, hidden_size, num_layers, batch_first=True)
+        self.lstm = nn.LSTM(input_size, hidden_size, num_layers, batch_first=True, dropout=0.1)
         self.fc   = nn.Linear(hidden_size, 1)
 
     def forward(self, x):
@@ -16,10 +16,10 @@ class HopLSTM(nn.Module):
 
 class FrequencyHopPredictor:
     """
-    Predicts the next frequency hop using a sequence-to-one LSTM model.
+    Predicts the next frequency hop using a deeper sequence-to-one LSTM model.
     Learns patterns in frequency-hopping signals in real-time.
     """
-    def __init__(self, history_len=10):
+    def __init__(self, history_len=12):
         self.history_len = history_len
         self.histories  = {} # track_id -> deque
         

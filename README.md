@@ -30,18 +30,19 @@ Klasik enerji tabanlı eşik (Threshold) tespiti yerine spektrum, 2 boyutlu bir 
 - **OpenCV & Canny Edge Algoritmaları:** SDR modülünden akan PSD (Power Spectral Density) verileri `uint8` gri tonlamalı imaj matrislerine dönüştürülür.
 - **Sinyal Morfolojisi Analizi:** Sistem, `cv2.findContours` fonksiyonları kullanılarak atmosferik solma (Atmospheric Fading) ve çevresel gürültünün yarattığı dezenformasyon filtreleyerek sinyal adacıklarının (blobs) merkez frekansını, bant genişliğini ve SNR marjını otonom olarak hesaplar.
 
-## 🧠 Bilişsel Yapay Zeka Mimarisi (Phase 2)
+## 🧠 Bilişsel Yapay Zeka Mimarisi (Phase 3)
 
-Sistem, basit kural tabanlı algoritmaların ötesine geçerek şu gelişmiş AI bileşenlerini kullanır:
+Sistem, basit kural tabanlı algoritmaların ötesine geçerek şu gelişmiş Derin Öğrenme (Deep Learning) bileşenlerini kullanır:
 
-### 1. LSTM Tabanlı Frekans Atlamalı Tahminleyici (Hop Predictor)
+### 1. Derin LSTM Tabanlı Frekans Atlamalı Tahminleyici (Hop Predictor)
 - **Modül:** `modules/predictor/hop_predictor.py`
 - **Görev:** `QPSK` veya `Radar` gibi frekans atlamalı (FHSS) sinyallerin geçmiş verilerini analiz ederek bir sonraki frekans adımını (hop) yaklaşık **%85+ doğrulukla** tahmin eder.
-- **Teknoloji:** PyTorch tabanlı Sequence-to-One LSTM Sinir Ağı.
+- **Teknoloji:** PyTorch tabanlı Çok Katmanlı (Multi-Layer) Sequence-to-One LSTM Sinir Ağı (Dropout Entegrasyonlu).
 
-### 2. DQN-Ready Electronic Attack (EA) Optimizer
+### 2. Deep Q-Network (DQN) Electronic Attack (EA) Optimizer
 - **Modül:** `modules/optimizer/et_optimizer.py`
-- **Görev:** Tehdit seviyesi ve AI tahmin isabetine göre en uygun jamming politikasını (Standby, Spot, Barrage) belirler.
+- **Görev:** Sürekli değişen RF spektrum ortamını 4 boyutlu bir durum uzayı olarak alır, tehdit seviyesi ve AI tahmin isabetine göre en uygun jamming politikasını (Standby, Spot, Barrage, Look-Through, Deceptive Jam) otonom olarak seçer.
+- **Teknoloji:** PyTorch tabanlı Deep Q-Network (DQN) mimarisi. Bellman denklemini iteratif olarak çözerek Epsilon-Greedy politikasıyla (Experience Replay Buffer kullanılarak) eğitilir.
 - **Ödül Fonksiyonu:** Tahmin edilen frekansa yapılan başarılı taarruzlar için ekstra ödül (+25 pts) alarak "Anticipatory Jamming" yeteneğini geliştirir.
 
 ### 3. Bilişsel Analiz Dashboard

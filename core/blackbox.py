@@ -44,7 +44,9 @@ class MissionLogger:
                     action       TEXT,
                     target_count INTEGER,
                     reward       REAL,
-                    epsilon      REAL
+                    epsilon      REAL,
+                    episode      INTEGER,
+                    q_states     INTEGER
                 )
             ''')
             conn.commit()
@@ -67,6 +69,8 @@ class MissionLogger:
         for col, typedef in {
             "action":  "TEXT DEFAULT 'UNKNOWN'",
             "epsilon": "REAL DEFAULT 1.0",
+            "episode": "INTEGER DEFAULT 0",
+            "q_states": "INTEGER DEFAULT 0",
         }.items():
             if col not in existing_act:
                 c.execute(f"ALTER TABLE actions ADD COLUMN {col} {typedef}")
@@ -100,12 +104,14 @@ class MissionLogger:
         with self.lock:
             with sqlite3.connect(self.db_path) as conn:
                 conn.cursor().execute(
-                    "INSERT INTO actions (timestamp, action, target_count, reward, epsilon) "
-                    "VALUES (?,?,?,?,?)",
+                    "INSERT INTO actions (timestamp, action, target_count, reward, epsilon, episode, q_states) "
+                    "VALUES (?,?,?,?,?,?,?)",
                     (now, ea_status.get("action", "UNKNOWN"),
                      ea_status.get("target_count", 0),
                      ea_status.get("reward", 0),
-                     ea_status.get("epsilon", 1.0))
+                     ea_status.get("epsilon", 1.0),
+                     ea_status.get("episode", 0),
+                     ea_status.get("q_states", 0))
                 )
                 conn.commit()
 
@@ -144,10 +150,10 @@ class MissionLogger:
             with sqlite3.connect(self.db_path) as conn:
                 c = conn.cursor()
                 c.execute(
-                    "SELECT timestamp, action, target_count, reward, epsilon "
+                    "SELECT timestamp, action, target_count, reward, epsilon, episode, q_states "
                     "FROM actions ORDER BY timestamp DESC LIMIT ?", (n,)
                 )
-                cols = ["timestamp", "action", "target_count", "reward", "epsilon"]
+                cols = ["timestamp", "action", "target_count", "reward", "epsilon", "episode", "q_states"]
                 return [dict(zip(cols, row)) for row in c.fetchall()]
         except Exception:
             return []
