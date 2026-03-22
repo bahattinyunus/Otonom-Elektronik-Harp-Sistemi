@@ -1,11 +1,11 @@
-# 📡 Otonom Elektronik Harp Sistemi (Cognitive-EW-Suite) v5.0
+# 📡 Otonom Elektronik Harp Sistemi (Cognitive-EW-Suite) v6.0
 
 ![Otonom EW Suite Banner](banner.png)
 
-![Version](https://img.shields.io/badge/version-5.0.0-blue.svg)
+![Version](https://img.shields.io/badge/version-6.0.0-blue.svg)
 ![TEKNOFEST](https://img.shields.io/badge/TEKNOFEST-2026-red.svg)
-![Status](https://img.shields.io/badge/TRL-9.0-success.svg)
-![AI Level](https://img.shields.io/badge/Cognitive_AI-Deep_Learning_%26_RL-orange.svg)
+![Status](https://img.shields.io/badge/TRL-10.0-success.svg)
+![AI Level](https://img.shields.io/badge/Cognitive_AI-Strategic_Decision_Support-orange.svg)
 
 **Otonom Elektronik Harp Sistemi (Cognitive-EW-Suite)**, modern elektronik harp (EH) ve elektromanyetik spektrum operasyonlarında (EMSO) Derin Öğrenme (Deep Learning) ve Pekiştirmeli Öğrenme (Reinforcement Learning) metodolojilerini spektral analiz süreçlerine entegre eden otonom bir Bilişsel Elektronik Harp (Cognitive EW) platformudur.
 
@@ -37,9 +37,10 @@ Simülasyon ortamı, laboratuvar koşullarından gerçek harekat ortamına yakla
 - **Multipath Fading Model:** Sinyallerin yansıma ve faz farkı kaynaklı sönümlenmelerini (fading) simüle eden matematiksel model entegre edilmiştir.
 - **DRFM (Digital Radio Frequency Memory) Jamming:** Tespit edilen aktif sinyallerin anlık frekans ve zaman kopyaları oluşturularak spektrumda aldatıcı "Ghost" (Hayalet) hedefler yaratılır.
 
-### 3. ELINT ve Hassas Yön Kestirimi (V5 Intel)
+### 3. ELINT ve Stratejik Karar Destek (V6 Final)
 - **Phase-Comparison Monopulse DF:** Çoklu anten (ULA) dizisi üzerinden Sum (Σ) ve Difference (Δ) sinyalleri işlenerek yüksek hassasiyetli geliş açısı (AoA) tahmini yapılır.
-- **ELINT Threat Mapping:** Frekans ve AoA verileri 2D scatter plot üzerinde haritalanarak emitter kümeleri ve taktiksel yayın örüntüleri görselleştirilir.
+- **HOS Deep Fingerprinting:** Sinyallerin Kurtosis (Basıklık) ve Skewness (Çarpıklık) gibi yüksek dereceli istatistiksel momentleri analiz edilerek donanım seviyesinde benzersiz yayıcı kimliklendirmesi (RFI) yapılır.
+- **Mission Timeline:** Görev boyunca gerçekleşen tespit-taarruz döngüsü kronolojik olarak haritalanarak operasyonel farkındalık en üst düzeye çıkarılır.
 
 ## 🧠 Bilişsel Yapay Zeka Mimarisi (Phase 3)
 

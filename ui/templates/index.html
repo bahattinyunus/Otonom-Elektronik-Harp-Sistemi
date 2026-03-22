@@ -261,6 +261,13 @@
             <div style="font-size:.6rem;color:var(--dim);text-align:center;margin-top:4px;">X: FREKANS (MHz) | Y: GELİŞ AÇISI (AoA)</div>
         </div>
 
+        <!-- Mission Timeline (New V6) -->
+        <div class="panel" style="border-left-color:var(--success);">
+            <div class="panel-title" style="color:var(--success);">GÖREV ZAMAN TÜNELİ</div>
+            <div style="height:100px;width:100% ;"><canvas id="timelineChart"></canvas></div>
+            <div style="font-size:.6rem;color:var(--dim);text-align:center;margin-top:2px;">KIRMIZI: KIRIM | YEŞİL: PASİFİZE</div>
+        </div>
+
         <!-- AI Analytics Panel -->
         <div class="panel" style="border-left-color:var(--success);background:linear-gradient(135deg, var(--panel) 0%, rgba(0,255,136,0.05) 100%);">
             <div class="panel-title" style="color:var(--success);">BİLİŞSEL ANALİZ (AI)</div>
@@ -364,6 +371,23 @@
                 x: { min: 432.0, max: 434.0, grid: { color: 'rgba(255,255,255,0.05)' }, title: { display: false }, ticks: { color: '#555', font: { size: 9 } } },
                 y: { min: 0, max: 360, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#555', font: { size: 9 } } }
             }, animation: { duration: 200 }
+        }
+    });
+
+    // ── Mission Timeline (New V6) ───────────────────────────────────────────
+    const tlCtx = document.getElementById('timelineChart').getContext('2d');
+    const tlData = { labels: new Array(50).fill(''), datasets: [
+        { label: 'Threats', data: new Array(50).fill(0), borderColor: '#ff3e3e', borderWidth: 1.5, tension: 0.3, pointRadius: 0, fill: false },
+        { label: 'Jammed',  data: new Array(50).fill(0), borderColor: '#00ff88', borderWidth: 1.5, tension: 0.3, pointRadius: 0, fill: false }
+    ]};
+    const tlChart = new Chart(tlCtx, {
+        type: 'line',
+        data: tlData,
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: { x: { display: false }, y: { display: false, min: 0 } },
+            animation: { duration: 0 }
         }
     });
 
@@ -563,6 +587,13 @@
         
         const rewardPct = Math.min(100, Math.max(0, (ea.reward / 500) * 100));
         document.getElementById('ai-rl-bar').style.width = rewardPct + '%';
+
+        // Timeline Update (V6)
+        tlChart.data.datasets[0].data.shift();
+        tlChart.data.datasets[0].data.push(ea.target_count || 0);
+        tlChart.data.datasets[1].data.shift();
+        tlChart.data.datasets[1].data.push(isJam ? (ea.target_count || 0) : 0);
+        tlChart.update('none');
     });
 </script>
 </body>

@@ -61,9 +61,7 @@ class SystemOrchestrator:
                     min_diff = diff
                     matched  = env_sig
             if matched and min_diff < (self.env.fs * 0.05):
-                rfi_hash = self.classifier.extract_rfi_signature(
-                    matched.get("phase_noise", 0), matched.get("carrier_offset", 0)
-                )
+                rfi_hash = self.classifier.extract_rfi_signature(matched)
 
             processed_signals.append({
                 "freq_idx":      det["center_idx"],

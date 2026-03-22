@@ -140,17 +140,38 @@ class SmartOptimizer:
 
     def _calculate_reward(self, signals, action):
         if not signals:
-            return 1.0 if action == "STANDBY" else -0.5
+            return 2.0 if action == "STANDBY" else -1.5 # Harsh penalty for wasting energy
         
-        # Exploration reward logic
-        if action == "LOOK_THROUGH" and len(signals) > 2:
-            return 15.0
+        # Base Threat Rewards
+        crit_count = sum(1 for s in signals if s.get('threat_level') == 'CRITICAL')
+        high_count = sum(1 for s in signals if s.get('threat_level') == 'HIGH')
         
-        has_crit = any(s.get('threat_level') == 'CRITICAL' for s in signals)
-        if has_crit and action in ["JAM_SPOT", "JAM_BARRAGE", "DECEPTIVE_JAM"]:
-            return 25.0
+        # Strategic Objectives:
+        # 1. Neutralize Threats
+        threat_reward = (crit_count * 20.0) + (high_count * 10.0)
+        
+        # 2. Spectral Efficiency (Penalty for broad/barrage jamming if few targets)
+        efficiency_penalty = 0
+        if action == "JAM_BARRAGE" and len(signals) < 3:
+            efficiency_penalty = -10.0
+        
+        # 3. Energy Cost Management
+        energy_cost = {
+            "STANDBY":      0.0,
+            "LOOK_THROUGH": -0.5,
+            "JAM_SPOT":     -2.0,
+            "JAM_BARRAGE":  -5.0,
+            "DECEPTIVE_JAM":-3.0,
+            "DRFM_GHOSTS":  -4.0
+        }.get(action, -1.0)
+
+        # 4. Intelligence Bonus
+        intel_bonus = 5.0 if any('predicted_next_mhz' in s for s in signals) else 0.0
+
+        total_reward = threat_reward + energy_cost + efficiency_penalty + intel_bonus
+        
+        # Success check: If jamming high-threat areas
+        if action in ["JAM_SPOT", "JAM_BARRAGE", "DRFM_GHOSTS"] and (crit_count > 0 or high_count > 0):
+            total_reward += 10.0
             
-        if any('predicted_next_mhz' in s for s in signals):
-            return 5.0
-            
-        return -1.0
+        return total_reward
