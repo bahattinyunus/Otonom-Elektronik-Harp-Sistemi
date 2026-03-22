@@ -5,8 +5,9 @@ from modules.detector.detector import WaterfallDetector
 from modules.classifier.classifier import ModulationClassifier
 from modules.direction_finder.df_logic import DirectionFinder
 from modules.optimizer.et_optimizer import SmartOptimizer
-from modules.tracker.kalman_tracker import KalmanTracker
-from modules.denoiser.denoiser import SpectralDenoiser
+from modules.tracker.advanced_tracker import AdvancedTracker
+from modules.denoiser.neural_denoiser import NeuralDenoiser
+from modules.synthesizer.waveform_gen import WaveformSynthesizer
 from modules.predictor.hop_predictor import FrequencyHopPredictor
 from core.config import NOISE_FLOOR
 from core.blackbox import MissionLogger
@@ -21,8 +22,9 @@ class SystemOrchestrator:
         self.classifier = ModulationClassifier()
         self.df         = DirectionFinder()
         self.optimizer  = SmartOptimizer()
-        self.tracker    = KalmanTracker()
-        self.denoiser   = SpectralDenoiser()
+        self.tracker    = AdvancedTracker()
+        self.denoiser   = NeuralDenoiser()
+        self.synth      = WaveformSynthesizer()
         self.predictor  = FrequencyHopPredictor()
         self.logger     = MissionLogger("logs/mission_log.db")
 
@@ -111,7 +113,18 @@ class SystemOrchestrator:
             }
             self.env.set_jamming("JAM_SPOT" if is_jam else "STANDBY")
 
+        # 5. Cognitive Synthesis Logic (V8)
+        if len(processed_signals) > 0 and self.mode == "AUTO":
+             # Create a phantom target as a decoy if 1+ real threats are detected
+             if not self.synth.active_phantoms:
+                 self.synth.create_phantom_target("DECOY", 1200000, 30.0)
+        else:
+             self.synth.clear_phantoms()
+
         psd_arr  = np.array(psd_raw)
+        # Apply synthesizer overlay to waterfall if active
+        synth_overlay = self.synth.get_spectrum_overlay(len(psd_raw))
+        psd_viz = (psd_arr + np.array(synth_overlay)).tolist()
         occupied = int(np.sum(psd_arr > (NOISE_FLOOR + 15)))
         spectrum_stats = {
             "occupancy_pct": round(occupied / len(psd_arr) * 100, 1),
@@ -131,7 +144,7 @@ class SystemOrchestrator:
             threat_counts[lvl] = threat_counts.get(lvl, 0) + 1
 
         self.latest_results = {
-            "waterfall":      psd_raw,
+            "waterfall":      psd_viz, # Shared viz with synth
             "signals":        processed_signals,
             "ea_status":      ea_status,
             "spectrum_stats": spectrum_stats,

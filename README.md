@@ -1,11 +1,11 @@
-# 📡 Otonom Elektronik Harp Sistemi (Cognitive-EW-Suite) v7.0
+# 📡 Otonom Elektronik Harp Sistemi (Cognitive-EW-Suite) v8.0
 
 ![Otonom EW Suite Banner](banner.png)
 
-![Version](https://img.shields.io/badge/version-7.0.0-blue.svg)
+![Version](https://img.shields.io/badge/version-8.0.0-blue.svg)
 ![TEKNOFEST](https://img.shields.io/badge/TEKNOFEST-2026-red.svg)
 ![Status](https://img.shields.io/badge/TRL-10.0-success.svg)
-![AI Level](https://img.shields.io/badge/Cognitive_AI-Distributed_Swarm_Intelligence-orange.svg)
+![AI Level](https://img.shields.io/badge/Cognitive_AI-Neural_Denoising_&_Synthesis-purple.svg)
 
 **Otonom Elektronik Harp Sistemi (Cognitive-EW-Suite)**, modern elektronik harp (EH) ve elektromanyetik spektrum operasyonlarında (EMSO) Derin Öğrenme (Deep Learning) ve Pekiştirmeli Öğrenme (Reinforcement Learning) metodolojilerini spektral analiz süreçlerine entegre eden otonom bir Bilişsel Elektronik Harp (Cognitive EW) platformudur.
 
@@ -41,7 +41,11 @@ Simülasyon ortamı, laboratuvar koşullarından gerçek harekat ortamına yakla
 - **Collaborative Swarm Registry:** Çoklu düğüm operasyonları için "Dost/Paydaş" frekans planı ve RFI hash kayıt defteri entegre edilmiştir.
 - **REST Telemetry API (v1):** Dış sistemler (SDR, Flight Controller) için gerçek zamanlı istihbarat ve taarruz verisi sunan standart JSON API endpoint'i (HIL Ready).
 - **Interference Avoidance RL:** Reinforcement Learning ajanı, sürü üyelerinin haberleşme sağlığını bozmamak için dost frekanslardan kaçınma (de-confliction) mantığına kavuşturulmuştur.
-- **Swarm Dashboard:** Sürüdeki düğümlerin bağlantı ve görev durumlarını canlı olarak haritalayan taktik panel.
+
+### 4. Nöral Gürültü Temizleme ve Bilişsel Sentez (V8 Neural Fusion)
+- **Neural Autoencoder Denoiser:** PSD verileri 1D-CNN Autoencoder üzerinden geçirilerek stokastik gürültüden arındırılır.
+- **Cognitive Waveform Synthesis:** LPI (Düşük Yakalanma Olasılığı) sinyalleri ve aldatıcı "Phantom" hedefler spektrum üzerinde dinamik olarak sentezlenir.
+- **UKF (Unscented Kalman Filter) Tracking:** Hedef takip algoritması, non-lineer manevraları yüksek hassasiyetle takip edebilen UKF mimarisine yükseltilmiştir.
 
 ## 🧠 Bilişsel Yapay Zeka Mimarisi (Phase 3)
 
