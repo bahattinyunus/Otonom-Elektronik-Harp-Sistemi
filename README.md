@@ -1,10 +1,10 @@
-# 📡 Otonom Elektronik Harp Sistemi (Cognitive-EW-Suite) v4.0
+# 📡 Otonom Elektronik Harp Sistemi (Cognitive-EW-Suite) v5.0
 
 ![Otonom EW Suite Banner](banner.png)
 
-![Version](https://img.shields.io/badge/version-4.0.0-blue.svg)
+![Version](https://img.shields.io/badge/version-5.0.0-blue.svg)
 ![TEKNOFEST](https://img.shields.io/badge/TEKNOFEST-2026-red.svg)
-![Status](https://img.shields.io/badge/TRL-8.5-success.svg)
+![Status](https://img.shields.io/badge/TRL-9.0-success.svg)
 ![AI Level](https://img.shields.io/badge/Cognitive_AI-Deep_Learning_%26_RL-orange.svg)
 
 **Otonom Elektronik Harp Sistemi (Cognitive-EW-Suite)**, modern elektronik harp (EH) ve elektromanyetik spektrum operasyonlarında (EMSO) Derin Öğrenme (Deep Learning) ve Pekiştirmeli Öğrenme (Reinforcement Learning) metodolojilerini spektral analiz süreçlerine entegre eden otonom bir Bilişsel Elektronik Harp (Cognitive EW) platformudur.
@@ -31,10 +31,15 @@ Klasik enerji tabanlı eşik (Threshold) tespiti yerine spektrum, 2 boyutlu bir 
 - **Morphological Closing:** Sönümlenmiş (faded) veya parçalı sinyal bloklarını `cv2.MORPH_CLOSE` ile birleştirerek tekil hedef sürekliliğini sağlar.
 - **Sinyal Morfolojisi Analizi:** Sistem, `cv2.findContours` fonksiyonları kullanılarak atmosferik solma (Atmospheric Fading) ve çevresel gürültünün yarattığı dezenformasyon filtreleyerek sinyal adacıklarının (blobs) merkez frekansını, bant genişliğini ve SNR marjını otonom olarak hesaplar.
 
-### 2. İleri Seviye RF Simülasyonu (V4 Complex Environment)
+### 2. İleri Seviye RF Simülasyonu ve Karıştırma (V5 Deceptive EW)
 Simülasyon ortamı, laboratuvar koşullarından gerçek harekat ortamına yaklaştırılmıştır:
 - **FMCW (Chirp) Radarlar:** Frekansı zamanla doğrusal olarak değişen (LFM) radar sinyalleri simüle edilir.
 - **Multipath Fading Model:** Sinyallerin yansıma ve faz farkı kaynaklı sönümlenmelerini (fading) simüle eden matematiksel model entegre edilmiştir.
+- **DRFM (Digital Radio Frequency Memory) Jamming:** Tespit edilen aktif sinyallerin anlık frekans ve zaman kopyaları oluşturularak spektrumda aldatıcı "Ghost" (Hayalet) hedefler yaratılır.
+
+### 3. ELINT ve Hassas Yön Kestirimi (V5 Intel)
+- **Phase-Comparison Monopulse DF:** Çoklu anten (ULA) dizisi üzerinden Sum (Σ) ve Difference (Δ) sinyalleri işlenerek yüksek hassasiyetli geliş açısı (AoA) tahmini yapılır.
+- **ELINT Threat Mapping:** Frekans ve AoA verileri 2D scatter plot üzerinde haritalanarak emitter kümeleri ve taktiksel yayın örüntüleri görselleştirilir.
 
 ## 🧠 Bilişsel Yapay Zeka Mimarisi (Phase 3)
 

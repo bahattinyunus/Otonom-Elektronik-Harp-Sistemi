@@ -254,6 +254,13 @@
             <div class="logs" id="logs"></div>
         </div>
 
+        <!-- ELINT Threat Map (New V5) -->
+        <div class="panel" style="border-left-color:var(--orange);">
+            <div class="panel-title" style="color:var(--orange);">ELINT TEHDİT HARİTASI</div>
+            <div style="height:150px;width:100%;"><canvas id="elintChart"></canvas></div>
+            <div style="font-size:.6rem;color:var(--dim);text-align:center;margin-top:4px;">X: FREKANS (MHz) | Y: GELİŞ AÇISI (AoA)</div>
+        </div>
+
         <!-- AI Analytics Panel -->
         <div class="panel" style="border-left-color:var(--success);background:linear-gradient(135deg, var(--panel) 0%, rgba(0,255,136,0.05) 100%);">
             <div class="panel-title" style="color:var(--success);">BİLİŞSEL ANALİZ (AI)</div>
@@ -340,6 +347,23 @@
                 angleLines: { color: 'rgba(255,255,255,0.1)' }, grid: { color: 'rgba(0,242,255,0.15)' },
                 pointLabels: { color: '#00f2ff', font: { size: 9 } }, ticks: { display: false, max: 100 }
             }}, animation: { duration: 120 }
+        }
+    });
+
+    // ── ELINT Threat Map (New V5) ─────────────────────────────────────────────
+    const elintCtx = document.getElementById('elintChart').getContext('2d');
+    const elintChart = new Chart(elintCtx, {
+        type: 'scatter',
+        data: { datasets: [{
+            label: 'Threats', data: [], backgroundColor: '#ff8c00', pointRadius: 4, pointHoverRadius: 6
+        }]},
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                x: { min: 432.0, max: 434.0, grid: { color: 'rgba(255,255,255,0.05)' }, title: { display: false }, ticks: { color: '#555', font: { size: 9 } } },
+                y: { min: 0, max: 360, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#555', font: { size: 9 } } }
+            }, animation: { duration: 200 }
         }
     });
 
@@ -474,11 +498,12 @@
         document.getElementById('tc-med').innerText  = tc.MEDIUM   || 0;
         document.getElementById('tc-low').innerText  = tc.LOW      || 0;
 
-        // Signal table + radar
+        // Signal table + radar + elint
         const tbody = document.getElementById('sig-tbody');
         tbody.innerHTML = '';
         document.getElementById('sig-count').innerText = (data.signals||[]).length + ' sinyal';
-        let radarBins = [0,0,0,0,0,0,0,0], logEntry = null;
+        let radarBins = [0,0,0,0,0,0,0,0], elintData = [];
+        let logEntry = null;
 
         (data.signals || []).forEach(sig => {
             const tr = document.createElement('tr');
@@ -500,9 +525,14 @@
             if (sig.aoa !== undefined && !isNaN(parseFloat(sig.aoa))) {
                 const idx = Math.floor(((parseFloat(sig.aoa) + 22.5) % 360) / 45);
                 if (idx >= 0 && idx < 8) radarBins[idx] += (sig.snr || 10);
+                
+                elintData.push({ x: sig.freq_mhz, y: sig.aoa });
             }
             logEntry = sig;
         });
+
+        elintChart.data.datasets[0].data = elintData;
+        elintChart.update('none');
 
         const maxR = Math.max(...radarBins, 1);
         radarChart.data.datasets[0].data = radarBins.map(v => (v / maxR) * 100);

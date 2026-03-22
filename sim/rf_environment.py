@@ -137,6 +137,18 @@ class RFEnvironment:
                 fake_amp = random.uniform(15, 35)
                 psd      = np.maximum(psd, self.noise_floor +
                                       fake_amp * np.exp(-((x - fake_idx) ** 2) / (2 * half_w ** 2)))
+        elif action == "DRFM_GHOSTS":
+            # Simulate DRFM by creating frequency-offset copies of active signals
+            for sig in self.active_signals:
+                if sig.get('amplitude', 0) > 30:
+                    for offset in [-60, 60]: # +/- bin offsets
+                        freq_idx = int((sig['freq'] - (self.center_freq - self.fs / 2)) / (self.fs / self.fft_size))
+                        ghost_idx = freq_idx + offset
+                        if 0 <= ghost_idx < self.fft_size:
+                            width = sig['bw'] / (self.fs / self.fft_size)
+                            x     = np.arange(self.fft_size)
+                            ghost_peak = (sig['amplitude'] * 0.7) * np.exp(-((x - ghost_idx) ** 2) / (2 * (width / 2) ** 2))
+                            psd = np.maximum(psd, self.noise_floor + ghost_peak)
         return psd
 
     def _spawn_random_signal(self):
