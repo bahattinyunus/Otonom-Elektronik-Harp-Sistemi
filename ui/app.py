@@ -117,6 +117,29 @@ def get_threats():
     })
 
 
+# ── HIL Telemetry API v1 (New V7) ──────────────────────────────────────────
+@app.route('/api/v1/telemetry')
+def get_v1_telemetry():
+    """HIL-Ready REST endpoint for external mission controllers."""
+    r = orchestrator.latest_results
+    if not r:
+        return jsonify({"status": "unavailable"}), 503
+    
+    return jsonify({
+        "version": "6.0.0", # System core version
+        "timestamp": r.get("timestamp"),
+        "swarm": orchestrator.friendly_nodes,
+        "intel": {
+            "signals": [
+                {k: v for k, v in s.items() if k not in ["waterfall_slice"]} 
+                for s in r.get("signals", [])
+            ],
+            "stats": r.get("spectrum_stats")
+        },
+        "action": r.get("ea_status")
+    })
+
+
 # ── Socket events ─────────────────────────────────────────────────────────────
 @socketio.on('set_mode')
 def handle_set_mode(data):

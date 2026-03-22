@@ -168,10 +168,21 @@ class SmartOptimizer:
         # 4. Intelligence Bonus
         intel_bonus = 5.0 if any('predicted_next_mhz' in s for s in signals) else 0.0
 
-        total_reward = threat_reward + energy_cost + efficiency_penalty + intel_bonus
+        # 5. Collaborative Interference Avoidance (V7)
+        friendly_penalty = 0
+        from core.orchestrator import SystemOrchestrator # Reference friendly list if available
+        # In a real impl, we'd pass friendly_freqs as state. 
+        # Here we simulate the effect of 'Friendly detected' signal being jammed.
+        for s in signals:
+            if s.get('rfi_hash') in ["0xA1B2C", "0xF9E8D"]: # Simulated registry match
+                if action in ["JAM_SPOT", "JAM_BARRAGE"]:
+                    friendly_penalty -= 50.0
+
+        total_reward = threat_reward + energy_cost + efficiency_penalty + intel_bonus + friendly_penalty
         
-        # Success check: If jamming high-threat areas
+        # Success check: If jamming high-threat areas correctly
         if action in ["JAM_SPOT", "JAM_BARRAGE", "DRFM_GHOSTS"] and (crit_count > 0 or high_count > 0):
-            total_reward += 10.0
+            if friendly_penalty == 0: # Only if we didn't hit friendlies
+                total_reward += 10.0
             
         return total_reward

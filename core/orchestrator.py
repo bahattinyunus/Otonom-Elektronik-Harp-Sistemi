@@ -31,6 +31,12 @@ class SystemOrchestrator:
         self.denoiser_on    = True
         self.latest_results = {}
 
+        # Swarm Collaborative Intelligence (V7)
+        self.friendly_nodes = [
+            {"id": "NODE-01", "role": "SCOUT", "freq_mhz": 433.100, "rfi_hash": "0xA1B2C"},
+            {"id": "NODE-02", "role": "COMMS", "freq_mhz": 433.850, "rfi_hash": "0xF9E8D"}
+        ]
+
     def _idx_to_mhz(self, freq_idx: int) -> float:
         freq_hz = (freq_idx / self.env.fft_size) * self.env.fs + (self.env.center_freq - self.env.fs / 2)
         return round(freq_hz / 1e6, 3)
