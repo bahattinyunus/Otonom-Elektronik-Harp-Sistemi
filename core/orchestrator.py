@@ -43,6 +43,10 @@ class SystemOrchestrator:
         
         self.mission_control = MissionStateMachine()
         self.jamming_cycle_idx = 0  # Multi-target slicing (V1.0)
+        self.module_health = {
+            "HAL": True, "DET": True, "CLS": True, "DF": True, 
+            "OPT": True, "TRK": True, "DNS": True, "SYN": True
+        }
 
         self.mode           = "AUTO"
         self.manual_jam     = False
@@ -60,53 +64,77 @@ class SystemOrchestrator:
         return round(freq_hz / 1e6, 3)
 
     def run_cycle(self):
-        psd_raw    = self.env.generate_spectrum_frame()
+        # 1. Spectrum Acquisition (HAL)
+        try:
+            psd_raw = self.env.generate_spectrum_frame()
+            self.module_health["HAL"] = self.env.is_active()
+        except Exception as e:
+            print(f"[Orch] HAL Error: {e}")
+            self.module_health["HAL"] = False
+            psd_raw = [-100.0] * 1024 # Emergency fallback
+
         hz_per_bin = self.env.fs / self.env.fft_size
 
-        # Optional spectral denoiser; waterfall always shows raw PSD
-        psd_proc   = self.denoiser.process(psd_raw) if self.denoiser_on else psd_raw
-        detections = self.detector.detect(psd_proc, NOISE_FLOOR)
+        # 2. Cognitive Denoising
+        try:
+            psd_proc = self.denoiser.process(psd_raw) if self.denoiser_on else psd_raw
+            self.module_health["DNS"] = True
+        except Exception as e:
+            print(f"[Orch] Denoising Error: {e}")
+            self.module_health["DNS"] = False
+            psd_proc = psd_raw
+
+        # 3. Detection & Feature Extraction
+        try:
+            detections = self.detector.detect(psd_proc, NOISE_FLOOR)
+            self.module_health["DET"] = True
+        except Exception as e:
+            print(f"[Orch] Detection Error: {e}")
+            self.module_health["DET"] = False
+            detections = []
 
         processed_signals = []
         for det in detections:
-            idx = det["center_idx"]
-            bw  = det["bandwidth_idx"]
-            
-            # Extract PSD slice for spectral moment analysis
-            lo = max(0, idx - bw // 2)
-            hi = min(len(psd_proc), idx + bw // 2 + 1)
-            psd_slice = psd_proc[lo:hi]
-            
-            det["freq_mhz"] = self._idx_to_mhz(idx)
+            try:
+                idx = det["center_idx"]
+                bw  = det["bandwidth_idx"]
+                
+                # Extract PSD slice for spectral moment analysis
+                lo = max(0, idx - bw // 2)
+                hi = min(len(psd_proc), idx + bw // 2 + 1)
+                psd_slice = psd_proc[lo:hi]
+                
+                det["freq_mhz"] = self._idx_to_mhz(idx)
 
-            mod_type, confidence, threat_level = self.classifier.classify(det, psd_slice)
-            aoa, df_confidence                 = self.df.estimate_aoa(det)
+                mod_type, confidence, threat_level = self.classifier.classify(det, psd_slice)
+                aoa, df_confidence                 = self.df.estimate_aoa(det)
 
-            # RFI fingerprinting against active simulation signals
-            det_freq = det["freq_mhz"] * 1e6
-            rfi_hash = "UNKNOWN"
-            min_diff = float("inf")
-            matched  = None
-            for env_sig in self.env.active_signals:
-                diff = abs(env_sig["freq"] - det_freq)
-                if diff < min_diff:
-                    min_diff = diff
-                    matched  = env_sig
-            if matched and min_diff < (self.env.fs * 0.05):
-                rfi_hash = self.classifier.extract_rfi_signature(matched)
+                # RFI fingerprinting against active simulation signals
+                det_freq = det["freq_mhz"] * 1e6
+                rfi_hash = "UNKNOWN"
+                min_diff = float("inf")
+                matched  = None
+                for env_sig in self.env.active_signals:
+                    diff = abs(env_sig["freq"] - det_freq)
+                    if diff < min_diff:
+                        min_diff = diff
+                        matched  = env_sig
+                if matched and min_diff < (self.env.fs * 0.05):
+                    rfi_hash = self.classifier.extract_rfi_signature(matched)
 
-            processed_signals.append({
-                "freq_idx":      det["center_idx"],
-                "freq_mhz":      det["freq_mhz"],
-                "bandwidth_hz":  round(det["bandwidth_idx"] * hz_per_bin),
-                "snr":           round(det["snr"], 2),
-                "type":          mod_type,
-                "confidence":    confidence,
-                "threat_level":  threat_level,
-                "aoa":           aoa,
-                "df_confidence": df_confidence,
-                "rfi_hash":      rfi_hash,
-            })
+                processed_signals.append({
+                    "freq_idx":      det["center_idx"],
+                    "freq_mhz":      det["freq_mhz"],
+                    "bandwidth_hz":  round(det["bandwidth_idx"] * hz_per_bin),
+                    "snr":           round(det.get("snr", 0), 1),
+                    "mod_type":      mod_type,
+                    "confidence":    round(confidence, 2),
+                    "threat_level":  threat_level,
+                    "aoa":           round(aoa, 1),
+                    "rfi_hash":      rfi_hash,
+                })
+            except Exception as e:
+                print(f"[Orch] Signal processing error: {e}")
 
         processed_signals = self.tracker.update(processed_signals)
 
