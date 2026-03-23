@@ -8,6 +8,19 @@ class WaterfallDetector:
         self.history_len = history_len # Reduced from 12 to 3 for low latency
         self.history = []
         
+    def _estimate_local_noise(self, psd_frame, window_size=40, guard_size=4):
+        """Estimates the noise floor for each bin using a sliding window (CA-CFAR approach)."""
+        psd = np.array(psd_frame)
+        kernel = np.ones(window_size * 2 + 1)
+        # Zero out the guard cells and the cell under test
+        kernel[window_size - guard_size : window_size + guard_size + 1] = 0
+        kernel /= np.sum(kernel)
+        
+        # Reflect padding to handle edges
+        padded = np.pad(psd, window_size, mode='reflect')
+        local_mean = np.convolve(padded, kernel, mode='valid')
+        return local_mean
+
     def detect(self, psd_frame, noise_floor):
         detections = []
         
@@ -16,16 +29,19 @@ class WaterfallDetector:
         if len(self.history) > self.history_len:
             self.history.pop(0)
             
-        # 2. Fast 1D Detection (Zero Latency Path)
-        # Use only the latest frame for immediate discovery
         latest_psd = np.array(psd_frame)
-        snr_1d = latest_psd - noise_floor
-        mask_1d = snr_1d > self.threshold
+        
+        # 2. Dynamic Thresholding (CA-CFAR)
+        # Instead of fixed noise_floor, we estimate it locally per bin
+        local_noise = self._estimate_local_noise(latest_psd)
+        snr_1d = latest_psd - local_noise
+        mask_1d = snr_1d > self.threshold # self.threshold now acts as "sensitivity above local noise"
         
         # 3. Computer Vision Processing (Verification Path)
         if len(self.history) >= self.history_len:
             mat = np.array(self.history)
-            mat_snr = np.maximum(mat - noise_floor, 0)
+            # Use local_noise from latest frame for the whole mat (approximation for speed)
+            mat_snr = np.maximum(mat - local_noise, 0)
             img = np.clip(mat_snr * (255.0 / 60.0), 0, 255).astype(np.uint8)
             
             thresh_img = cv2.adaptiveThreshold(
