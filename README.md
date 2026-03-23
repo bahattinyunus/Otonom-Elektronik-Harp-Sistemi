@@ -9,7 +9,14 @@
 
 **Otonom Elektronik Harp Sistemi (Cognitive-EW-Suite)**, modern elektronik harp (EH) ve elektromanyetik spektrum operasyonlarında (EMSO) Derin Öğrenme (Deep Learning) ve Pekiştirmeli Öğrenme (Reinforcement Learning) metodolojilerini spektral analiz süreçlerine entegre eden otonom bir Bilişsel Elektronik Harp (Cognitive EW) platformudur.
 
-Sistem, Statik Tehdit Kütüphanelerine (Emitter Threat Library) dayalı klasik Karşı Tedbir (ECM) yaklaşımlarının aksine; stokastik spektral anomalileri dinamik olarak anlamlandırabilen, non-lineer hedef tespit-takip korelasyonu kurabilen ve OODA (Gözlem, Yönelim, Karar, Eylem) döngüsünün insan faktörü olmaksızın milisaniyeler içerisinde tamamlanmasını sağlayan otonom ajan (autonomous agent) mimarisine dayanmaktadır.
+### 🏭 SDR Hardware Abstraction Layer (HAL) - [v0.4]
+Sistem, donanım bağımsızlığı (HW Agnostic) vizyonuyla yeniden mimarize edilmiştir. `SDRInterface` soyutlama katmanı sayesinde; RTLSDR, HackRF, USRP veya simüle edilmiş bir `RFEnvironment` arasında geçiş yapmak sadece bir konfigürasyon değişikliği (`config.py`) kadar kolaydır. Bu, saha operasyonlarında farklı sensör setlerinin "Tak-Çalıştır" mantığıyla sisteme dahil edilmesini sağlar.
+
+### 📡 CA-CFAR: Dinamik Eşikleme ve Gürültü Adaptasyonu - [v0.6]
+Klasik sistemlerin aksine, bu suite spektrumu sabit bir eşik (Threshold) ile taramaz. **CA-CFAR (Cell Averaging Constant False Alarm Rate)** algoritması ile:
+- Her bin için çevre (Training) hücrelerin gürültü ortalaması alınır.
+- Sinyal sızıntısını önleyen Koruma (Guard) hücreleri ile net SNR ölçümü yapılır.
+- Sistem, karıştırma (Jamming) altında dahi otonom olarak gürültü zeminini takip eder ve duyarlılığını buna göre ayarlar.
 
 ---
 
@@ -47,7 +54,16 @@ Simülasyon ortamı, laboratuvar koşullarından gerçek harekat ortamına yakla
 - **Cognitive Waveform Synthesis:** LPI (Düşük Yakalanma Olasılığı) sinyalleri ve aldatıcı "Phantom" hedefler spektrum üzerinde dinamik olarak sentezlenir.
 - **UKF (Unscented Kalman Filter) Tracking:** Hedef takip algoritması, non-lineer manevraları yüksek hassasiyetle takip edebilen UKF mimarisine yükseltilmiştir.
 
-### 5. Bilişsel Korunma ve Operasyonel İstihbarat (V9 Protection & Intel)
+### 5. Stratejik Otonomi ve Görev Durum Makinesi (v0.7 Mission Control)
+Sistem, reaktif bir loop yerine artık proaktif bir **Mission State Machine** tarafından yönetilmektedir:
+- **SCAN (Arama):** Enerji tasarruflu geniş bant tarama ve anomali keşfi.
+- **TRACK (Kilitlenme):** Tehdidin özniteliklerini (Modülasyon, RFI Signature) çıkarma ve LSTM Predictor ile gelecek frekansını tahmin etme.
+- **ENGAGE (Taarruz):** Pekiştirmeli öğrenme ajanı vasıtasıyla optimize edilmiş karıştırma sinyali uygulama.
+- **EVALUATE (BDA - Hasar Tespit):** Angajman sonrası saniyeler içinde karıştırmayı durdurup hedefin etkisizleştiğini (Signal Kill) veya kaçtığını otonom olarak doğrulama.
+
+---
+
+### 🛡️ Bilişsel Korunma ve Operasyonel İstihbarat (V9 Protection & Intel)
 - **Electronic Protection (EP) Agent:** Dost unsurları düşman karıştırmasından korumak için otonom frekans atlama (Frequency Hopping) rotaları oluşturan RL ajanı.
 - **Mission Intelligence Analyzer:** Görev süresince toplanan büyük veriyi (Big Data) işleyerek EH operatörüne stratejik özetler sunan bilişsel raporlama ünitesi.
 - **Spectral Security Index:** Spektrumun güvenilirlik ve kullanılabilirlik oranını anlık olarak hesaplayan yeni nesil metrik sistemi.
@@ -80,10 +96,13 @@ Projenin temel otonomi unsuru olan Q-Learning adaptasyonu, Elektronik Destek (ED
 - **Dinamik Ödül/Ceza (Reward System):** ET (Karıştırma) esnasında ajan (Agent), uyguladığı taarruz sonrası spektrumdaki hedef sayısında bir düşüş algılarsa $(+10)$ ödül puanı alır. Hedefin gücü düşmezse, yani hedefin frekans atlatarak kaçtığı tespit edilirse ajan enerji israfı nedeniyle $(-5)$ puanlık ceza ile cezalandırılır.
 - **Taarruz Kavraması:** Otonom ajan, zamanla hangi hedef profilinde ne kadar süre $T_{jam}$ (Karıştırma) ve $T_{look}$ (Dinleme) yapması gerektiğini öğrenerek "Optimum Duty Cycle" oranına yakınsar.
 
-### 4. Non-Linear State Estimation (Kalman Filtresi) ve RFI Parmak İzi
-Tespit edilen elektromanyetik tehdit profilleri, anlık Geliş Açısı (AoA) spekülasyonlarından sıyrılıp, uzamsal bir takip algoritması ile korelasyona sokulur.
-- **Track-While-Scan (Kalman Tracker):** Spektral sıçrama ve kros-modülasyon uygulayan hedeflerin uzamsal-frekans (Spatial-Spectral) özniteliklerini izafi bir durum vektörü (State Vector / Track ID) içinde entegre eder ve hedef sürekliliğini teminat altına alır.
-- **Radio Frequency Fingerprinting (RFI):** Sinyal Üreticilerindeki donanımsal osilatör toleranslarının (Phase Noise, Phase Jitter, Carrier Offset) yarattığı benzersiz nano-akustik sapmaları işleyerek deterministik Kriptografik Karma (Hash Signature) üretir. Bu özellik PyTorch modülünü bypass ederek, aynı kimliğe (örn: BPSK) ve banda sahip muharip cihazların eşsiz dijital imzalarla radarda izole edilmesine imkan verir.
+### 4. Bilişsel Sınıflandırma: Spektral Momentler ve Uzman Sistem (Expert System)
+Sinyal tipi kestiriminde sadece ham güç değerleri değil, istatistiksel spektral momentler kullanılır:
+- **Kurtosis (Basıklık):** Sinyalin impulsif yapısını (örn: Radar darbeleri) analiz eder.
+- **Skewness (Çarpıklık):** Spektral asimetri üzerinden modülasyon saflığını ölçer.
+- **Flatness (Düzlük):** Sinyalin bant genişliğindeki güç dağılımını (Gürültü vs. Geniş Bant Haberleşme) ayırt eder.
+
+---
 
 ---
 
