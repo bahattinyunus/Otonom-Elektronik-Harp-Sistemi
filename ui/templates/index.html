@@ -19,6 +19,7 @@
             --border:  rgba(0, 242, 255, 0.18);
             --manual:  #ff0055;
             --dim:     rgba(255,255,255,0.45);
+            --v9-gold: #ffcc00;
         }
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
@@ -121,19 +122,19 @@
 <body>
 <header>
     <div class="title-group">
-        <h1>Otonom-EH Suite v8.0.0</h1>
-        <p>Cognitive EW · Neural Autoencoder + UKF + ULA-DF + Ghost Synthesis</p>
+        <h1>Otonom-EH Suite v9.0.0</h1>
+        <p>Phase 9: Cognitive Protection & Intelligence Mode (V9Gold)</p>
     </div>
     <div class="header-row">
         <div class="hstat"><span class="hstat-val" id="h-targets">0</span>Hedef</div>
         <div class="hstat"><span class="hstat-val" id="h-reward">0</span>Q-Ödül</div>
         <div class="hstat"><span class="hstat-val" id="h-occ">0%</span>Doluluk</div>
         <div class="hstat"><span class="hstat-val" id="h-eps">1.000</span>Epsilon</div>
-        <div class="hstat"><span class="hstat-val" id="h-peak">-100</span>Peak dBm</div>
+        <div class="hstat"><span class="hstat-val" id="h-sec" style="color:var(--v9-gold);">100%</span>Security</div>
         <span class="badge badge-online">SDR: ONLINE</span>
         <span class="badge badge-local" id="rf-source-badge">LOCAL</span>
         <span class="badge badge-denoiser-on" id="denoiser-badge" style="background:rgba(0,140,255,0.1);color:#008cff;border-color:#008cff;">NEURAL AI: ON</span>
-        <span class="badge badge-local" style="background:rgba(255,0,255,0.1);color:#ff00ff;border-color:#ff00ff;">SYNTH: ACTIVE</span>
+        <span class="badge badge-local" style="background:rgba(255,204,0,0.1);color:var(--v9-gold);border-color:var(--v9-gold);">COGNITIVE: V9</span>
     </div>
 </header>
 
@@ -267,6 +268,34 @@
             <div class="panel-title" style="color:var(--success);">GÖREV ZAMAN TÜNELİ</div>
             <div style="height:100px;width:100% ;"><canvas id="timelineChart"></canvas></div>
             <div style="font-size:.6rem;color:var(--dim);text-align:center;margin-top:2px;">KIRMIZI: KIRIM | YEŞİL: PASİFİZE</div>
+        </div>
+
+        <!-- Spectral Security & EP (New V9) -->
+        <div class="panel" style="border-left-color:var(--v9-gold);background:rgba(255,204,0,0.03);">
+            <div class="panel-title" style="color:var(--v9-gold);">SPEKTRAL GÜVENLİK (EP)
+                <span id="ep-hop-count" style="font-size:.65rem;color:var(--dim);">HOPS: 0</span>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem;">
+                <div class="metric">
+                    <div class="metric-lbl">Güvenlik Endeksi</div>
+                    <div class="metric-val" id="ep-security-idx" style="color:var(--v9-gold);">100%</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-lbl">Girişim Seviyesi</div>
+                    <div class="metric-val" id="ep-interf-level" style="color:var(--hazard);">0%</div>
+                </div>
+            </div>
+            <div id="ep-status-bar" style="margin-top:8px;font-size:.65rem;color:var(--success);font-weight:700;text-align:center;padding:4px;background:rgba(255,255,255,0.05);border-radius:4px;">
+                SİSTEM GÜVENLİ (SECURE)
+            </div>
+        </div>
+
+        <!-- Mission AI Strategic Summary (New V9) -->
+        <div class="panel" style="border-left-color:var(--accent);background:#000;">
+            <div class="panel-title" style="color:var(--accent);border-bottom:none;margin-bottom:0;">AI STRATEJİK GENEL BAKIŞ</div>
+            <div id="mission-report-terminal" style="font-family:'Courier New', monospace;font-size:.68rem;color:var(--success);min-height:60px;padding:8px;line-height:1.4;">
+                [ANALİZ BAŞLATILDI] Spektrum verileri AI engine tarafından işleniyor...
+            </div>
         </div>
 
         <!-- Swarm Status (New V7) -->
@@ -616,6 +645,23 @@
                     <span style="color:var(--success)">CONNECTED</span>
                 </div>
             `).join('');
+        }
+
+        // V9: EP and Mission Report
+        if (data.ep_status) {
+            const ep = data.ep_status;
+            document.getElementById('h-sec').innerText = ep.security_index + '%';
+            document.getElementById('ep-security-idx').innerText = ep.security_index + '%';
+            document.getElementById('ep-interf-level').innerText = ep.interference_level + '%';
+            document.getElementById('ep-hop-count').innerText = 'HOPS: ' + ep.total_hops;
+            
+            const epBar = document.getElementById('ep-status-bar');
+            epBar.innerText = 'SİSTEM ' + ep.status;
+            epBar.style.color = ep.status === 'SECURE' ? 'var(--success)' : (ep.status === 'JAMMED' ? 'var(--hazard)' : 'var(--warn)');
+        }
+
+        if (data.mission_report) {
+            document.getElementById('mission-report-terminal').innerText = '> ' + data.mission_report;
         }
     });
 </script>

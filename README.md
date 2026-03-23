@@ -1,11 +1,11 @@
-# 📡 Otonom Elektronik Harp Sistemi (Cognitive-EW-Suite) v8.0
+# 📡 Otonom Elektronik Harp Sistemi (Cognitive-EW-Suite) v9.0
 
 ![Otonom EW Suite Banner](banner.png)
 
-![Version](https://img.shields.io/badge/version-8.0.0-blue.svg)
+![Version](https://img.shields.io/badge/version-9.0.0-gold.svg)
 ![TEKNOFEST](https://img.shields.io/badge/TEKNOFEST-2026-red.svg)
 ![Status](https://img.shields.io/badge/TRL-10.0-success.svg)
-![AI Level](https://img.shields.io/badge/Cognitive_AI-Neural_Denoising_&_Synthesis-purple.svg)
+![AI Level](https://img.shields.io/badge/Cognitive_AI-Protection_&_Intelligence-gold.svg)
 
 **Otonom Elektronik Harp Sistemi (Cognitive-EW-Suite)**, modern elektronik harp (EH) ve elektromanyetik spektrum operasyonlarında (EMSO) Derin Öğrenme (Deep Learning) ve Pekiştirmeli Öğrenme (Reinforcement Learning) metodolojilerini spektral analiz süreçlerine entegre eden otonom bir Bilişsel Elektronik Harp (Cognitive EW) platformudur.
 
@@ -46,6 +46,11 @@ Simülasyon ortamı, laboratuvar koşullarından gerçek harekat ortamına yakla
 - **Neural Autoencoder Denoiser:** PSD verileri 1D-CNN Autoencoder üzerinden geçirilerek stokastik gürültüden arındırılır.
 - **Cognitive Waveform Synthesis:** LPI (Düşük Yakalanma Olasılığı) sinyalleri ve aldatıcı "Phantom" hedefler spektrum üzerinde dinamik olarak sentezlenir.
 - **UKF (Unscented Kalman Filter) Tracking:** Hedef takip algoritması, non-lineer manevraları yüksek hassasiyetle takip edebilen UKF mimarisine yükseltilmiştir.
+
+### 5. Bilişsel Korunma ve Operasyonel İstihbarat (V9 Protection & Intel)
+- **Electronic Protection (EP) Agent:** Dost unsurları düşman karıştırmasından korumak için otonom frekans atlama (Frequency Hopping) rotaları oluşturan RL ajanı.
+- **Mission Intelligence Analyzer:** Görev süresince toplanan büyük veriyi (Big Data) işleyerek EH operatörüne stratejik özetler sunan bilişsel raporlama ünitesi.
+- **Spectral Security Index:** Spektrumun güvenilirlik ve kullanılabilirlik oranını anlık olarak hesaplayan yeni nesil metrik sistemi.
 
 ## 🧠 Bilişsel Yapay Zeka Mimarisi (Phase 3)
 

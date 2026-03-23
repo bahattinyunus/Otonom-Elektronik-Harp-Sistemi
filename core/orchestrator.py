@@ -9,6 +9,8 @@ from modules.tracker.advanced_tracker import AdvancedTracker
 from modules.denoiser.neural_denoiser import NeuralDenoiser
 from modules.synthesizer.waveform_gen import WaveformSynthesizer
 from modules.predictor.hop_predictor import FrequencyHopPredictor
+from modules.optimizer.ep_agent import EPAgent
+from modules.analytics.mission_analyzer import MissionAnalyzer
 from core.config import NOISE_FLOOR
 from core.blackbox import MissionLogger
 
@@ -26,6 +28,8 @@ class SystemOrchestrator:
         self.denoiser   = NeuralDenoiser()
         self.synth      = WaveformSynthesizer()
         self.predictor  = FrequencyHopPredictor()
+        self.ep_agent   = EPAgent()
+        self.analyzer   = MissionAnalyzer()
         self.logger     = MissionLogger("logs/mission_log.db")
 
         self.mode           = "AUTO"
@@ -143,10 +147,25 @@ class SystemOrchestrator:
             lvl = s.get("threat_level", "LOW")
             threat_counts[lvl] = threat_counts.get(lvl, 0) + 1
 
+        # 6. Electronic Protection (EP) Cycle (V9)
+        ep_status = self.ep_agent.decide_action(processed_signals)
+        
+        # 7. Cognitive Mission Analysis (V9)
+        self.analyzer.update({
+            "signals": processed_signals,
+            "ea_status": ea_status,
+            "ep_status": ep_status
+        })
+        mission_report = self.analyzer.generate_strategic_summary()
+        metrics        = self.analyzer.get_mission_metrics()
+
         self.latest_results = {
-            "waterfall":      psd_viz, # Shared viz with synth
+            "waterfall":      psd_viz, 
             "signals":        processed_signals,
             "ea_status":      ea_status,
+            "ep_status":      ep_status,
+            "mission_report": mission_report,
+            "mission_metrics": metrics,
             "spectrum_stats": spectrum_stats,
             "threat_counts":  threat_counts,
             "timestamp":      time.time(),
