@@ -86,72 +86,27 @@ class SystemOrchestrator:
 
         # 3. Detection & Feature Extraction
         try:
-            detections = self.detector.detect(psd_proc, NOISE_FLOOR)
-            self.module_health["DET"] = True
-        except Exception as e:
-            print(f"[Orch] Detection Error: {e}")
-            self.module_health["DET"] = False
-            detections = []
-
-        processed_signals = []
-        for det in detections:
-            try:
-                idx = det["center_idx"]
-                bw  = det["bandwidth_idx"]
-                
-                # Extract PSD slice for spectral moment analysis
-                lo = max(0, idx - bw // 2)
-                hi = min(len(psd_proc), idx + bw // 2 + 1)
-                psd_slice = psd_proc[lo:hi]
-                
-                det["freq_mhz"] = self._idx_to_mhz(idx)
-
-                mod_type, confidence, threat_level = self.classifier.classify(det, psd_slice)
-                aoa, df_confidence                 = self.df.estimate_aoa(det)
-
-                # RFI fingerprinting against active simulation signals
-                det_freq = det["freq_mhz"] * 1e6
-                rfi_hash = "UNKNOWN"
-                min_diff = float("inf")
-                matched  = None
-                for env_sig in self.env.active_signals:
-                    diff = abs(env_sig["freq"] - det_freq)
-                    if diff < min_diff:
-                        min_diff = diff
-                        matched  = env_sig
-                if matched and min_diff < (self.env.fs * 0.05):
-                    rfi_hash = self.classifier.extract_rfi_signature(matched)
-
-                processed_signals.append({
-                    "freq_idx":      det["center_idx"],
-                    "freq_mhz":      det["freq_mhz"],
-                    "bandwidth_hz":  round(det["bandwidth_idx"] * hz_per_bin),
-                    "snr":           round(det.get("snr", 0), 1),
-                    "mod_type":      mod_type,
-                    "confidence":    round(confidence, 2),
-                    "threat_level":  threat_level,
-                    "aoa":           round(aoa, 1),
-                    "rfi_hash":      rfi_hash,
-                })
-            except Exception as e:
-                print(f"[Orch] Signal processing error: {e}")
-
-        processed_signals = self.tracker.update(processed_signals)
-
         # 4. Predict next hop for tracking targets
         for sig in processed_signals:
             track_id = sig.get("track_id")
-            if track_id:
-                # Predicting for all identified tracks, LSTM learns if it's hopping
-                prediction = self.predictor.update_and_predict(track_id, sig["freq_mhz"])
-                if prediction:
-                    sig["predicted_next_mhz"] = round(float(prediction), 3)
+        # 4. Advanced Tracking & Mission Update
+        try:
+            processed_signals = self.tracker.update(processed_signals)
+            for sig in processed_signals:
+                track_id = sig.get("track_id")
+                if track_id:
+                    prediction = self.predictor.update_and_predict(track_id, sig["freq_mhz"])
+                    if prediction:
+                        sig["predicted_next_mhz"] = round(float(prediction), 3)
 
-        # Strategic Mission Update (V7)
-        mission_state = self.mission_control.update(processed_signals)
+            mission_state = self.mission_control.update(processed_signals)
+            self.module_health["TRK"] = True
+        except Exception as e:
+            print(f"[Orch] Tracking Error: {e}")
+            self.module_health["TRK"] = False
+            mission_state = MissionState.SCAN
 
-        # 4.5. Autonomous Frequency Chasing (V9)
-        # If tracking a target, ensure the primary target stays in the center
+        # 4.5. Autonomous Frequency Chasing
         if mission_state in [MissionState.TRACK, MissionState.ENGAGE, MissionState.EVALUATE]:
             target_ids = self.mission_control.target_track_ids
             if target_ids:
@@ -160,93 +115,55 @@ class SystemOrchestrator:
                 if target_sig:
                     rel_pos = target_sig["freq_idx"] / self.env.fft_size
                     if rel_pos < 0.15 or rel_pos > 0.85:
-                        new_center = target_sig["freq_mhz"] * 1e6
-                        self.env.set_center_freq(new_center)
+                        self.env.set_center_freq(target_sig["freq_mhz"] * 1e6)
 
-        if self.mode == "AUTO":
-            # Decide jamming action based on mission state
-            if mission_state == MissionState.ENGAGE:
-                # Multi-Target Time Slicing (V1.0)
-                targets = self.mission_control.target_track_ids
-                if targets:
-                    active_target_id = targets[self.jamming_cycle_idx % len(targets)]
-                    self.jamming_cycle_idx += 1
-                    
-                    target_sig = next((s for s in processed_signals if s.get("track_id") == active_target_id), None)
-                    if target_sig:
-                        # Update optimizer status for UI for the SPECIFIC time-sliced target
-                        ea_status = self.optimizer.update_strategy([target_sig])
-                        self.env.set_jamming(ea_status.get("action", "JAM_SPOT"))
-                        ea_status["status"] = f"TAARRUZ: ID#{active_target_id}"
+        # 5. Electronic Attack (EA) Strategy
+        try:
+            if self.mode == "AUTO":
+                if mission_state == MissionState.ENGAGE:
+                    targets = self.mission_control.target_track_ids
+                    if targets:
+                        active_target_id = targets[self.jamming_cycle_idx % len(targets)]
+                        self.jamming_cycle_idx += 1
+                        target_sig = next((s for s in processed_signals if s.get("track_id") == active_target_id), None)
+                        
+                        if target_sig:
+                            # Pass friendly registry to avoid fratricide reward penalty (V1.2)
+                            ea_status = self.optimizer.update_strategy([target_sig], self.friendly_nodes)
+                            self.env.set_jamming(ea_status.get("action", "JAM_SPOT"))
+                            ea_status["status"] = f"TAARRUZ: ID#{active_target_id}"
+                        else:
+                            ea_status = {"action": "STANDBY", "is_jamming": False, "status": "HEDEF KAYIP"}
                     else:
-                        self.env.set_jamming("STANDBY")
-                        ea_status = {"action": "STANDBY", "is_jamming": False, "status": "HEDEF KAYIP"}
-                else:
+                        ea_status = {"action": "STANDBY", "is_jamming": False, "status": "HEDEF YOK"}
+                elif mission_state == MissionState.EVALUATE:
+                    ea_status = {"is_jamming": False, "status": "BDA (ANALİZ)", "action": "STANDBY"}
                     self.env.set_jamming("STANDBY")
-                    ea_status = {"action": "STANDBY", "is_jamming": False, "status": "HEDEF YOK"}
-            elif mission_state == MissionState.EVALUATE:
-                # Force standby for BDA (Battle Damage Assessment)
-                ea_status = {
-                    "is_jamming":          False,
-                    "status":              "BDA (ANALİZ)",
-                    "action":              "STANDBY",
-                    "target_count":        len(processed_signals),
-                    "reward":              self.optimizer.total_reward,
-                    "latest_reward_delta": 0,
-                    "epsilon":             self.optimizer.epsilon,
-                    "episode":             self.optimizer.episode_count,
-                    "q_states":            len(self.optimizer.memory),
-                }
-                self.env.set_jamming("STANDBY")
+                else:
+                    ea_status = {"is_jamming": False, "status": f"TAKTİKİ: {mission_state.value}", "action": "STANDBY"}
+                    self.env.set_jamming("STANDBY")
             else:
-                # SCAN or TRACK - Passive monitoring
-                ea_status = {
-                    "is_jamming":          False,
-                    "status":              f"TAKTİKİ: {mission_state.value}",
-                    "action":              "STANDBY",
-                    "target_count":        len(processed_signals),
-                    "reward":              self.optimizer.total_reward,
-                    "latest_reward_delta": 0,
-                    "epsilon":             self.optimizer.epsilon,
-                    "episode":             self.optimizer.episode_count,
-                    "q_states":            len(self.optimizer.memory),
-                }
-                self.env.set_jamming("STANDBY")
-        else:
-            is_jam    = self.manual_jam
-            ea_status = {
-                "is_jamming":          is_jam,
-                "status":              "MANUEL - TAARRUZ" if is_jam else "MANUEL - BEKLEME",
-                "action":              "JAM_SPOT" if is_jam else "STANDBY",
-                "target_count":        len(processed_signals),
-                "reward":              self.optimizer.total_reward,
-                "latest_reward_delta": 0,
-                "epsilon":             self.optimizer.epsilon,
-                "episode":             self.optimizer.episode_count,
-                "q_states":            len(self.optimizer.memory),
-            }
-            self.env.set_jamming("JAM_SPOT" if is_jam else "STANDBY")
+                is_jam = self.manual_jam
+                ea_status = {"is_jamming": is_jam, "action": "JAM_SPOT" if is_jam else "STANDBY"}
+                self.env.set_jamming(ea_status["action"])
+            self.module_health["OPT"] = True
+        except Exception as e:
+            print(f"[Orch] Strategy error: {e}")
+            self.module_health["OPT"] = False
+            ea_status = {"action": "STANDBY", "is_jamming": False, "status": "ARIZA (OPT)"}
 
         # 5. Cognitive Synthesis Logic (V8)
-        if len(processed_signals) > 0 and self.mode == "AUTO":
-             # Create a phantom target as a decoy if 1+ real threats are detected
-             if not self.synth.active_phantoms:
-                 self.synth.create_phantom_target("DECOY", 1200000, 30.0)
-        else:
-             self.synth.clear_phantoms()
-
-        psd_arr  = np.array(psd_raw)
-        # Apply synthesizer overlay to waterfall if active
-        synth_overlay = self.synth.get_spectrum_overlay(len(psd_raw))
-        psd_viz = (psd_arr + np.array(synth_overlay)).tolist()
-        occupied = int(np.sum(psd_arr > (NOISE_FLOOR + 15)))
-        spectrum_stats = {
-            "occupancy_pct": round(occupied / len(psd_arr) * 100, 1),
-            "peak_pwr_dbm":  round(float(np.max(psd_arr)), 1),
-            "active_sigs":   len(self.env.active_signals),
-            "rf_source":     "UDP" if self.env._udp_active() else "LOCAL",
-            "denoiser_on":   self.denoiser_on,
-        }
+        try:
+            if len(processed_signals) > 0 and self.mode == "AUTO":
+                # Create a phantom target as a decoy if 1+ real threats are detected
+                if not self.synth.active_phantoms:
+                    self.synth.create_phantom_target("DECOY", 1200000, 30.0)
+            else:
+                self.synth.clear_phantoms()
+            self.module_health["SYN"] = True
+        except Exception as e:
+            print(f"[Orch] Synthesis Error: {e}")
+            self.module_health["SYN"] = False
 
         self.logger.log_signals(processed_signals)
         self.logger.log_action(ea_status)
@@ -257,38 +174,43 @@ class SystemOrchestrator:
             lvl = s.get("threat_level", "LOW")
             threat_counts[lvl] = threat_counts.get(lvl, 0) + 1
 
-        # 6. Electronic Protection (EP) Cycle (V9)
-        ep_status = self.ep_agent.decide_action(processed_signals)
-        
-        # 7. Cognitive Mission Analysis (V9)
-        self.analyzer.update({
-            "signals": processed_signals,
-            "ea_status": ea_status,
-            "ep_status": ep_status
-        })
-        mission_report = self.analyzer.generate_strategic_summary()
-        metrics        = self.analyzer.get_mission_metrics()
+        # 6. Final Results & Telemetry
+        try:
+            ep_status = self.ep_agent.decide_action(processed_signals)
+            self.analyzer.update({"signals": processed_signals, "ea_status": ea_status, "ep_status": ep_status})
+            
+            psd_arr = np.array(psd_raw)
+            synth_overlay = self.synth.get_spectrum_overlay(len(psd_raw))
+            psd_viz = (psd_arr + np.array(synth_overlay)).tolist()
+            
+            # Simulate small swarm status updates for UI "liveness"
+            for node in self.friendly_nodes:
+                if random.random() > 0.95:
+                    node["status"] = random.choice(["CONNECTED", "SYNCING", "RELAYING"])
+                else:
+                    node["status"] = node.get("status", "CONNECTED")
 
-        # Simulate small swarm status updates for UI "liveness"
-        for node in self.friendly_nodes:
-            if random.random() > 0.95:
-                node["status"] = random.choice(["CONNECTED", "SYNCING", "RELAYING"])
-            else:
-                node["status"] = node.get("status", "CONNECTED")
+            self.latest_results = {
+                "waterfall":      psd_viz, 
+                "signals":        processed_signals,
+                "ea_status":      ea_status,
+                "ep_status":      ep_status,
+                "mission_report": self.analyzer.generate_strategic_summary(),
+                "mission_metrics": self.analyzer.get_mission_metrics(),
+                "spectrum_stats": {
+                    "peak_pwr_dbm": round(float(np.max(psd_arr)), 1),
+                    "active_sigs":  len(self.env.active_signals),
+                    "denoiser_on":  self.denoiser_on,
+                },
+                "health":         self.module_health,
+                "sys_mode":       self.mode,
+                "timestamp":      time.time(),
+                "threat_counts":  threat_counts,
+                "swarm":          self.friendly_nodes,
+            }
+        except Exception as e:
+            print(f"[Orch] Final Synthesis Error: {e}")
 
-        self.latest_results = {
-            "waterfall":      psd_viz, 
-            "signals":        processed_signals,
-            "ea_status":      ea_status,
-            "ep_status":      ep_status,
-            "mission_report": mission_report,
-            "mission_metrics": metrics,
-            "spectrum_stats": spectrum_stats,
-            "threat_counts":  threat_counts,
-            "swarm":          self.friendly_nodes,
-            "timestamp":      time.time(),
-            "sys_mode":       self.mode,
-        }
         return self.latest_results
 
 
