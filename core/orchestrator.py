@@ -1,5 +1,6 @@
 import time
 import numpy as np
+import random
 from sim.rf_environment import RFEnvironment
 from modules.detector.detector import WaterfallDetector
 from modules.classifier.classifier import ModulationClassifier
@@ -173,6 +174,13 @@ class SystemOrchestrator:
         mission_report = self.analyzer.generate_strategic_summary()
         metrics        = self.analyzer.get_mission_metrics()
 
+        # Simulate small swarm status updates for UI "liveness"
+        for node in self.friendly_nodes:
+            if random.random() > 0.95:
+                node["status"] = random.choice(["CONNECTED", "SYNCING", "RELAYING"])
+            else:
+                node["status"] = node.get("status", "CONNECTED")
+
         self.latest_results = {
             "waterfall":      psd_viz, 
             "signals":        processed_signals,
@@ -182,6 +190,7 @@ class SystemOrchestrator:
             "mission_metrics": metrics,
             "spectrum_stats": spectrum_stats,
             "threat_counts":  threat_counts,
+            "swarm":          self.friendly_nodes,
             "timestamp":      time.time(),
             "sys_mode":       self.mode,
         }
