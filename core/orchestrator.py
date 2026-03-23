@@ -15,9 +15,6 @@ from modules.analytics.mission_analyzer import MissionAnalyzer
 from core.mission_control import MissionStateMachine, MissionState
 from core.config import NOISE_FLOOR, SDR_TYPE
 from core.blackbox import MissionLogger
-from sim.rf_environment import RFEnvironment
-
-
 from core.real_sdr import RealSDR
 
 class SystemOrchestrator:
@@ -29,6 +26,7 @@ class SystemOrchestrator:
             self.env = RFEnvironment()
         else:
             self.env = RealSDR() 
+
         self.detector   = WaterfallDetector()
         self.classifier = ModulationClassifier()
         self.df         = DirectionFinder()
@@ -42,7 +40,7 @@ class SystemOrchestrator:
         self.logger     = MissionLogger("logs/mission_log.db")
         
         self.mission_control = MissionStateMachine()
-        self.jamming_cycle_idx = 0  # Multi-target slicing (V1.0)
+        self.jamming_cycle_idx = 0  
         self.module_health = {
             "HAL": True, "DET": True, "CLS": True, "DF": True, 
             "OPT": True, "TRK": True, "DNS": True, "SYN": True
@@ -57,9 +55,149 @@ class SystemOrchestrator:
         self.friendly_nodes = [
             {"id": "NODE-01", "role": "SCOUT", "freq_mhz": 433.100, "rfi_hash": "0xA1B2C"},
             {"id": "NODE-02", "role": "COMMS", "freq_mhz": 433.850, "rfi_hash": "0xF9E8D"}
-        for s in processed_signals:
-            lvl = s.get("threat_level", "LOW")
-            threat_counts[lvl] = threat_counts.get(lvl, 0) + 1
+        ]
+
+    def _idx_to_mhz(self, freq_idx: int) -> float:
+        freq_hz = (freq_idx / self.env.fft_size) * self.env.fs + (self.env.center_freq - self.env.fs / 2)
+        return round(freq_hz / 1e6, 3)
+
+    def run_cycle(self):
+        # 1. Spectrum Acquisition (HAL)
+        try:
+            psd_raw = self.env.generate_spectrum_frame()
+            self.module_health["HAL"] = self.env.is_active()
+        except Exception as e:
+            print(f"[Orch] HAL Error: {e}")
+            self.module_health["HAL"] = False
+            psd_raw = [-100.0] * 1024 # Emergency fallback
+
+        hz_per_bin = self.env.fs / self.env.fft_size
+
+        # 2. Cognitive Denoising
+        try:
+            psd_proc = self.denoiser.process(psd_raw) if self.denoiser_on else psd_raw
+            self.module_health["DNS"] = True
+        except Exception as e:
+            print(f"[Orch] Denoising Error: {e}")
+            self.module_health["DNS"] = False
+            psd_proc = psd_raw
+
+        # 3. Detection & Feature Extraction
+        try:
+            detections = self.detector.detect(psd_proc, NOISE_FLOOR)
+            self.module_health["DET"] = True
+        except Exception as e:
+            print(f"[Orch] Detection Error: {e}")
+            self.module_health["DET"] = False
+            detections = []
+
+        processed_signals = []
+        for det in detections:
+            try:
+                idx = det["center_idx"]
+                bw  = det["bandwidth_idx"]
+                lo = max(0, idx - bw // 2)
+                hi = min(len(psd_proc), idx + bw // 2 + 1)
+                psd_slice = psd_proc[lo:hi]
+                det["freq_mhz"] = self._idx_to_mhz(idx)
+
+                mod_type, confidence, threat_level = self.classifier.classify(det, psd_slice)
+                aoa, df_confidence                 = self.df.estimate_aoa(det)
+
+                # RFI signature matching
+                det_freq = det["freq_mhz"] * 1e6
+                rfi_hash = "UNKNOWN"
+                matched  = next((s for s in self.env.active_signals if abs(s["freq"] - det_freq) < (self.env.fs * 0.05)), None)
+                if matched:
+                    rfi_hash = self.classifier.extract_rfi_signature(matched)
+
+                processed_signals.append({
+                    "freq_idx":      idx,
+                    "freq_mhz":      det["freq_mhz"],
+                    "bandwidth_hz":  round(bw * hz_per_bin),
+                    "snr":           round(det.get("snr", 0), 1),
+                    "mod_type":      mod_type,
+                    "confidence":    round(confidence, 2),
+                    "threat_level":  threat_level,
+                    "aoa":           round(aoa, 1),
+                    "rfi_hash":      rfi_hash,
+                })
+            except Exception as e:
+                print(f"[Orch] Signal processing error: {e}")
+
+        # 4. Advanced Tracking & Mission Update
+        try:
+            processed_signals = self.tracker.update(processed_signals)
+            for sig in processed_signals:
+                track_id = sig.get("track_id")
+                if track_id:
+                    prediction = self.predictor.update_and_predict(track_id, sig["freq_mhz"])
+                    if prediction:
+                        sig["predicted_next_mhz"] = round(float(prediction), 3)
+
+            mission_state = self.mission_control.update(processed_signals)
+            self.module_health["TRK"] = True
+        except Exception as e:
+            print(f"[Orch] Tracking Error: {e}")
+            self.module_health["TRK"] = False
+            mission_state = MissionState.SCAN
+
+        # 4.5. Autonomous Frequency Chasing
+        if mission_state in [MissionState.TRACK, MissionState.ENGAGE, MissionState.EVALUATE]:
+            target_ids = self.mission_control.target_track_ids
+            if target_ids:
+                primary_id = target_ids[0]
+                target_sig = next((s for s in processed_signals if s.get("track_id") == primary_id), None)
+                if target_sig:
+                    rel_pos = target_sig["freq_idx"] / self.env.fft_size
+                    if rel_pos < 0.15 or rel_pos > 0.85:
+                        self.env.set_center_freq(target_sig["freq_mhz"] * 1e6)
+
+        # 5. Electronic Attack (EA) Strategy
+        try:
+            if self.mode == "AUTO":
+                if mission_state == MissionState.ENGAGE:
+                    targets = self.mission_control.target_track_ids
+                    if targets:
+                        active_target_id = targets[self.jamming_cycle_idx % len(targets)]
+                        self.jamming_cycle_idx += 1
+                        target_sig = next((s for s in processed_signals if s.get("track_id") == active_target_id), None)
+                        
+                        if target_sig:
+                            ea_status = self.optimizer.update_strategy([target_sig], self.friendly_nodes)
+                            self.env.set_jamming(ea_status.get("action", "JAM_SPOT"))
+                            ea_status["status"] = f"TAARRUZ: ID#{active_target_id}"
+                        else:
+                            ea_status = {"action": "STANDBY", "is_jamming": False, "status": "HEDEF KAYIP"}
+                    else:
+                        ea_status = {"action": "STANDBY", "is_jamming": False, "status": "HEDEF YOK"}
+                elif mission_state == MissionState.EVALUATE:
+                    ea_status = {"is_jamming": False, "status": "BDA (ANALİZ)", "action": "STANDBY"}
+                    self.env.set_jamming("STANDBY")
+                else:
+                    ea_status = {"is_jamming": False, "status": f"TAKTİKİ: {mission_state.value}", "action": "STANDBY"}
+                    self.env.set_jamming("STANDBY")
+            else:
+                is_jam = self.manual_jam
+                ea_status = {"is_jamming": is_jam, "action": "JAM_SPOT" if is_jam else "STANDBY"}
+                self.env.set_jamming(ea_status["action"])
+            self.module_health["OPT"] = True
+        except Exception as e:
+            print(f"[Orch] Strategy error: {e}")
+            self.module_health["OPT"] = False
+            ea_status = {"action": "STANDBY", "is_jamming": False, "status": "ARIZA (OPT)"}
+
+        # 5. Cognitive Synthesis Logic (V8)
+        try:
+            if len(processed_signals) > 0 and self.mode == "AUTO":
+                if not self.synth.active_phantoms:
+                    self.synth.create_phantom_target("DECOY", 1200000, 30.0)
+            else:
+                self.synth.clear_phantoms()
+            self.module_health["SYN"] = True
+        except Exception as e:
+            print(f"[Orch] Synthesis Error: {e}")
+            self.module_health["SYN"] = False
 
         # 6. Final Results & Telemetry
         try:
@@ -70,6 +208,12 @@ class SystemOrchestrator:
             synth_overlay = self.synth.get_spectrum_overlay(len(psd_raw))
             psd_viz = (psd_arr + np.array(synth_overlay)).tolist()
             
+            # Per-cycle threat counts
+            threat_counts = {"CRITICAL": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 0}
+            for s in processed_signals:
+                lvl = s.get("threat_level", "LOW")
+                threat_counts[lvl] = threat_counts.get(lvl, 0) + 1
+
             # Simulate small swarm status updates for UI "liveness"
             for node in self.friendly_nodes:
                 if random.random() > 0.95:
@@ -95,6 +239,8 @@ class SystemOrchestrator:
                 "threat_counts":  threat_counts,
                 "swarm":          self.friendly_nodes,
             }
+            self.logger.log_signals(processed_signals)
+            self.logger.log_action(ea_status)
         except Exception as e:
             print(f"[Orch] Final Synthesis Error: {e}")
 
