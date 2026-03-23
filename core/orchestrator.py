@@ -40,8 +40,8 @@ class SystemOrchestrator:
         self.analyzer   = MissionAnalyzer()
         self.logger     = MissionLogger("logs/mission_log.db")
         
-        # Strategic Autonomy (V7)
         self.mission_control = MissionStateMachine()
+        self.jamming_cycle_idx = 0  # Multi-target slicing (V1.0)
 
         self.mode           = "AUTO"
         self.manual_jam     = False
@@ -122,23 +122,39 @@ class SystemOrchestrator:
         mission_state = self.mission_control.update(processed_signals)
 
         # 4.5. Autonomous Frequency Chasing (V9)
-        # If tracking a target, ensure it stays in the center of the bandwidth
+        # If tracking a target, ensure the primary target stays in the center
         if mission_state in [MissionState.TRACK, MissionState.ENGAGE, MissionState.EVALUATE]:
-            target_id = self.mission_control.target_track_id
-            target_sig = next((s for s in processed_signals if s.get("track_id") == target_id), None)
-            if target_sig:
-                # Calculate relative position (0.0 to 1.0)
-                rel_pos = target_sig["freq_idx"] / self.env.fft_size
-                # If near edges (15% margin), retune the SDR center to the target
-                if rel_pos < 0.15 or rel_pos > 0.85:
-                    new_center = target_sig["freq_mhz"] * 1e6
-                    self.env.set_center_freq(new_center)
+            target_ids = self.mission_control.target_track_ids
+            if target_ids:
+                primary_id = target_ids[0]
+                target_sig = next((s for s in processed_signals if s.get("track_id") == primary_id), None)
+                if target_sig:
+                    rel_pos = target_sig["freq_idx"] / self.env.fft_size
+                    if rel_pos < 0.15 or rel_pos > 0.85:
+                        new_center = target_sig["freq_mhz"] * 1e6
+                        self.env.set_center_freq(new_center)
 
         if self.mode == "AUTO":
             # Decide jamming action based on mission state
             if mission_state == MissionState.ENGAGE:
-                ea_status = self.optimizer.update_strategy(processed_signals)
-                self.env.set_jamming(ea_status.get("action", "STANDBY"))
+                # Multi-Target Time Slicing (V1.0)
+                targets = self.mission_control.target_track_ids
+                if targets:
+                    active_target_id = targets[self.jamming_cycle_idx % len(targets)]
+                    self.jamming_cycle_idx += 1
+                    
+                    target_sig = next((s for s in processed_signals if s.get("track_id") == active_target_id), None)
+                    if target_sig:
+                        # Update optimizer status for UI for the SPECIFIC time-sliced target
+                        ea_status = self.optimizer.update_strategy([target_sig])
+                        self.env.set_jamming(ea_status.get("action", "JAM_SPOT"))
+                        ea_status["status"] = f"TAARRUZ: ID#{active_target_id}"
+                    else:
+                        self.env.set_jamming("STANDBY")
+                        ea_status = {"action": "STANDBY", "is_jamming": False, "status": "HEDEF KAYIP"}
+                else:
+                    self.env.set_jamming("STANDBY")
+                    ea_status = {"action": "STANDBY", "is_jamming": False, "status": "HEDEF YOK"}
             elif mission_state == MissionState.EVALUATE:
                 # Force standby for BDA (Battle Damage Assessment)
                 ea_status = {

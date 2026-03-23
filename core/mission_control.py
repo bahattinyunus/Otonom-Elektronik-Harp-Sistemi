@@ -15,6 +15,7 @@ class MissionStateMachine:
     def __init__(self):
         self.current_state = MissionState.SCAN
         self.target_track_id = None
+        self.target_track_ids = []  # Multi-target support (V1.0)
         self.state_start_time = time.time()
         self.engagement_count = 0
         self.bda_cycles = 0
@@ -23,6 +24,7 @@ class MissionStateMachine:
         return {
             "state": self.current_state.value,
             "target": self.target_track_id,
+            "targets_count": len(self.target_track_ids),
             "duration": round(time.time() - self.state_start_time, 1)
         }
 
@@ -30,11 +32,13 @@ class MissionStateMachine:
         """Processes the latest detections and decides on state transitions."""
         num_targets = len(detected_tracks)
         
+        # Update multi-target list (top 3 by threat)
+        sorted_tracks = sorted(detected_tracks, key=lambda x: self._threat_to_score(x.get("threat_level", "LOW")), reverse=True)
+        self.target_track_ids = [t.get("track_id") for t in sorted_tracks[:3]]
+        
         if self.current_state == MissionState.SCAN:
             if num_targets > 0:
-                # Transition to TRACK if targets are found
-                # Pick the highest threat target
-                highest_threat = max(detected_tracks, key=lambda x: self._threat_to_score(x.get("threat_level", "LOW")))
+                highest_threat = sorted_tracks[0]
                 self.target_track_id = highest_threat.get("track_id")
                 self._transition_to(MissionState.TRACK)
 
@@ -42,24 +46,19 @@ class MissionStateMachine:
             if num_targets == 0:
                 self._transition_to(MissionState.SCAN)
             elif self.target_track_id not in [t.get("track_id") for t in detected_tracks]:
-                # Current target lost, scan for new ones
                 self._transition_to(MissionState.SCAN)
             else:
-                # Target confirmed, move to ENGAGE
                 self._transition_to(MissionState.ENGAGE)
 
         elif self.current_state == MissionState.ENGAGE:
-            # Stay in ENGAGE for at least 3 seconds or if target is critical
             engagement_duration = time.time() - self.state_start_time
-            if engagement_duration > 3.0:
+            if engagement_duration > 5.0:  # Stay longer for multi-target cycles
                 self._transition_to(MissionState.EVALUATE)
 
         elif self.current_state == MissionState.EVALUATE:
-            # Stop jamming and observe for 2 cycles (BDA)
             self.bda_cycles += 1
             if self.bda_cycles >= 2:
                 self.bda_cycles = 0
-                # If target still there with high SNR, re-engage. If gone, go back to SCAN.
                 target_present = any(t.get("track_id") == self.target_track_id for t in detected_tracks)
                 if target_present:
                     self._transition_to(MissionState.ENGAGE)
