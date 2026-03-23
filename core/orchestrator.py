@@ -57,9 +57,17 @@ class SystemOrchestrator:
 
         processed_signals = []
         for det in detections:
-            det["freq_mhz"] = self._idx_to_mhz(det["center_idx"])
+            idx = det["center_idx"]
+            bw  = det["bandwidth_idx"]
+            
+            # Extract PSD slice for spectral moment analysis
+            lo = max(0, idx - bw // 2)
+            hi = min(len(psd_proc), idx + bw // 2 + 1)
+            psd_slice = psd_proc[lo:hi]
+            
+            det["freq_mhz"] = self._idx_to_mhz(idx)
 
-            mod_type, confidence, threat_level = self.classifier.classify(det)
+            mod_type, confidence, threat_level = self.classifier.classify(det, psd_slice)
             aoa, df_confidence                 = self.df.estimate_aoa(det)
 
             # RFI fingerprinting against active simulation signals
