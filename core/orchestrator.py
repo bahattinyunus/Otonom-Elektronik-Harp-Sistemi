@@ -78,23 +78,6 @@ class SystemOrchestrator:
         # 2. Cognitive Denoising
         try:
             psd_proc = self.denoiser.process(psd_raw) if self.denoiser_on else psd_raw
-            self.module_health["DNS"] = True
-        except Exception as e:
-            print(f"[Orch] Denoising Error: {e}")
-            self.module_health["DNS"] = False
-            psd_proc = psd_raw
-
-        # 3. Detection & Feature Extraction
-        try:
-        # 4. Predict next hop for tracking targets
-        for sig in processed_signals:
-            track_id = sig.get("track_id")
-        # 4. Advanced Tracking & Mission Update
-        try:
-            processed_signals = self.tracker.update(processed_signals)
-            for sig in processed_signals:
-                track_id = sig.get("track_id")
-                if track_id:
                     prediction = self.predictor.update_and_predict(track_id, sig["freq_mhz"])
                     if prediction:
                         sig["predicted_next_mhz"] = round(float(prediction), 3)
