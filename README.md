@@ -104,8 +104,6 @@ Sinyal tipi kestiriminde sadece ham güç değerleri değil, istatistiksel spekt
 
 ---
 
----
-
 ## 🧮 Alt Sistemler ve Taktik Destek Unsurları
 
 ### Zaman Farkı (TDOA) ile Otonom Yön Bulucu (DF)
@@ -148,6 +146,26 @@ docker-compose up --build -d
 
 Sistem başlatıldığında `http://localhost:5000` adresinden TCP/WS tabanlı Komuta Kontrol Enstrüman Panelinize erişebilirsiniz.
 Ağ analizi tamamlandıktan sonra operatör arayüzünden Görev Sonu Raporunu (AAR CSV) tek tıkla çekebilirsiniz.
+
+---
+
+## 🎓 Bilişsel EH Akademisi: Derinlemesine Teknik Kavramlar
+
+Sistemin çalışma prensiplerini daha iyi anlamak için temel alınan bazı ileri seviye kavramlar aşağıda açıklanmıştır:
+
+### 1. Spektral Momentler Neden Önemli?
+Bir sinyalin sadece gücüne (Power) bakmak, onun kimliğini belirlemek için yetersizdir.
+- **Kurtosis (Basıklık):** Gaussian (Normal) gürültünün basıklığı 3'tür. Eğer bu değer 10-20 seviyelerine çıkıyorsa, spektrumda "Darbeli" (Impulsive) bir yapı (örn: LPI Radar) olduğu kesinleşir.
+- **Skewness (Çarpıklık):** Sinyalin merkez frekansa göre ne kadar asimetrik olduğunu ölçer. Tek yan bantlı (SSB) veya frekans kayması olan sinyalleri yakalamada kritiktir.
+
+### 2. OODA Döngüsü Otomasyonu
+Hızlı bir EH operasyonu için **Gözlem -> Yönelim -> Karar -> Eylem** döngüsünün insan gecikmesinden (~200-500ms) kurtulması gerekir.
+- Bu suite, OODA döngüsünü tamamen RAM üzerinde, asenkron `MissionStateMachine` ile yöneterek bu süreyi **<50ms** seviyesine çeker. 
+- Bu, saniyede 1000 defa sekerek kaçmaya çalışan (Fast Hopping) bir telsizi dahi "Takipte" tutabilmeyi sağlar.
+
+### 3. CFAR Algoritması: Neden Sabit Eşik Kullanmıyoruz?
+Eğer eşik sabitse, düşman spektruma gürültü (Noise Jamming) bastığında sistem her şeyi "Sinyal" zanneder veya hiçbir şeyi göremez. 
+**CA-CFAR**, her frekans hücresi için "Gürültü Nedir?" sorusunu o anda cevaplar. Bu, dinamik bir koruma kalkanıdır.
 
 ---
 
