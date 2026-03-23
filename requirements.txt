@@ -6,3 +6,4 @@ flask-socketio
 opencv-python
 torch
 eventlet
+pyrtlsdr

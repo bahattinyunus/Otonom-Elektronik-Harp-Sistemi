@@ -18,6 +18,8 @@ from core.blackbox import MissionLogger
 from sim.rf_environment import RFEnvironment
 
 
+from core.real_sdr import RealSDR
+
 class SystemOrchestrator:
     """Main brain of the system. Routes data between all processing modules."""
 
@@ -26,8 +28,7 @@ class SystemOrchestrator:
         if SDR_TYPE == "SIMULATED":
             self.env = RFEnvironment()
         else:
-            # Placeholder for RealSDR(SDRInterface)
-            self.env = RFEnvironment() 
+            self.env = RealSDR() 
         self.detector   = WaterfallDetector()
         self.classifier = ModulationClassifier()
         self.df         = DirectionFinder()
