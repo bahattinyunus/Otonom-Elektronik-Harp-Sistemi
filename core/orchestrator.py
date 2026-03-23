@@ -12,6 +12,7 @@ from modules.synthesizer.waveform_gen import WaveformSynthesizer
 from modules.predictor.hop_predictor import FrequencyHopPredictor
 from modules.optimizer.ep_agent import EPAgent
 from modules.analytics.mission_analyzer import MissionAnalyzer
+from core.mission_control import MissionStateMachine, MissionState
 from core.config import NOISE_FLOOR, SDR_TYPE
 from core.blackbox import MissionLogger
 from sim.rf_environment import RFEnvironment
@@ -38,6 +39,9 @@ class SystemOrchestrator:
         self.ep_agent   = EPAgent()
         self.analyzer   = MissionAnalyzer()
         self.logger     = MissionLogger("logs/mission_log.db")
+        
+        # Strategic Autonomy (V7)
+        self.mission_control = MissionStateMachine()
 
         self.mode           = "AUTO"
         self.manual_jam     = False
@@ -114,9 +118,42 @@ class SystemOrchestrator:
                 if prediction:
                     sig["predicted_next_mhz"] = round(float(prediction), 3)
 
+        # Strategic Mission Update (V7)
+        mission_state = self.mission_control.update(processed_signals)
+
         if self.mode == "AUTO":
-            ea_status = self.optimizer.update_strategy(processed_signals)
-            self.env.set_jamming(ea_status.get("action", "STANDBY"))
+            # Decide jamming action based on mission state
+            if mission_state == MissionState.ENGAGE:
+                ea_status = self.optimizer.update_strategy(processed_signals)
+                self.env.set_jamming(ea_status.get("action", "STANDBY"))
+            elif mission_state == MissionState.EVALUATE:
+                # Force standby for BDA (Battle Damage Assessment)
+                ea_status = {
+                    "is_jamming":          False,
+                    "status":              "BDA (ANALİZ)",
+                    "action":              "STANDBY",
+                    "target_count":        len(processed_signals),
+                    "reward":              self.optimizer.total_reward,
+                    "latest_reward_delta": 0,
+                    "epsilon":             self.optimizer.epsilon,
+                    "episode":             self.optimizer.episode_count,
+                    "q_states":            len(self.optimizer.memory),
+                }
+                self.env.set_jamming("STANDBY")
+            else:
+                # SCAN or TRACK - Passive monitoring
+                ea_status = {
+                    "is_jamming":          False,
+                    "status":              f"TAKTİKİ: {mission_state.value}",
+                    "action":              "STANDBY",
+                    "target_count":        len(processed_signals),
+                    "reward":              self.optimizer.total_reward,
+                    "latest_reward_delta": 0,
+                    "epsilon":             self.optimizer.epsilon,
+                    "episode":             self.optimizer.episode_count,
+                    "q_states":            len(self.optimizer.memory),
+                }
+                self.env.set_jamming("STANDBY")
         else:
             is_jam    = self.manual_jam
             ea_status = {
