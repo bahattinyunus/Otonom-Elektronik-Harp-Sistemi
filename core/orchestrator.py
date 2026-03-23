@@ -121,6 +121,19 @@ class SystemOrchestrator:
         # Strategic Mission Update (V7)
         mission_state = self.mission_control.update(processed_signals)
 
+        # 4.5. Autonomous Frequency Chasing (V9)
+        # If tracking a target, ensure it stays in the center of the bandwidth
+        if mission_state in [MissionState.TRACK, MissionState.ENGAGE, MissionState.EVALUATE]:
+            target_id = self.mission_control.target_track_id
+            target_sig = next((s for s in processed_signals if s.get("track_id") == target_id), None)
+            if target_sig:
+                # Calculate relative position (0.0 to 1.0)
+                rel_pos = target_sig["freq_idx"] / self.env.fft_size
+                # If near edges (15% margin), retune the SDR center to the target
+                if rel_pos < 0.15 or rel_pos > 0.85:
+                    new_center = target_sig["freq_mhz"] * 1e6
+                    self.env.set_center_freq(new_center)
+
         if self.mode == "AUTO":
             # Decide jamming action based on mission state
             if mission_state == MissionState.ENGAGE:

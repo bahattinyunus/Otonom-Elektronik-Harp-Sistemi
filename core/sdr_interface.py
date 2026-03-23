@@ -36,6 +36,11 @@ class SDRInterface(ABC):
         ...
 
     @abstractmethod
+    def set_center_freq(self, freq_hz: float):
+        """Sets the center frequency of the SDR hardware."""
+        ...
+
+    @abstractmethod
     def is_active(self) -> bool:
         """Returns True if the hardware/source is actively providing data."""
         ...

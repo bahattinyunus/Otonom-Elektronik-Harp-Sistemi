@@ -31,5 +31,10 @@ class RealSDR(SDRInterface):
         # Hardware specific GPIO/TX commands for Emitter.
         print(f"[RealSDR] Setting TX action: {action}")
 
+    def set_center_freq(self, freq_hz: float):
+        # SDR retuning command (e.g., sdr.set_center_freq(freq_hz))
+        self._center_freq = freq_hz
+        print(f"[RealSDR] Retuning to: {freq_hz / 1e6:.2f} MHz")
+
     def is_active(self) -> bool:
         return self.active

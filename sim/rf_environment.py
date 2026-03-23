@@ -50,6 +50,9 @@ class RFEnvironment(SDRInterface):
     def set_jamming(self, action):
         self.jamming_action = action
 
+    def set_center_freq(self, freq_hz: float):
+        self._center_freq = freq_hz
+
     def _start_udp_listener(self, host, port):
         def _listen():
             try:
