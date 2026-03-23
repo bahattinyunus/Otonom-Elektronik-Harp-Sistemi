@@ -95,7 +95,7 @@ class SmartOptimizer:
         loss.backward()
         self.optimizer.step()
 
-    def update_strategy(self, signals):
+    def update_strategy(self, signals, friendly_registry=None):
         self.episode_count += 1
         current_state = self._get_state(signals)
         
@@ -113,7 +113,7 @@ class SmartOptimizer:
         action = self.actions[action_idx]
         
         # Measure reward based on system threat effectiveness
-        reward = self._calculate_reward(signals, action)
+        reward = self._calculate_reward(signals, action, friendly_registry)
         self.total_reward += reward
         
         # Save memory and train network
@@ -135,27 +135,22 @@ class SmartOptimizer:
             "epsilon": round(self.epsilon, 3),
             "episode": self.episode_count,
             "target_count": len(signals),
-            "q_states": len(self.memory) # Reflecting replay buffer capacity now instead of table
+            "q_states": len(self.memory)
         }
 
-    def _calculate_reward(self, signals, action):
+    def _calculate_reward(self, signals, action, friendly_registry=None):
         if not signals:
-            return 2.0 if action == "STANDBY" else -1.5 # Harsh penalty for wasting energy
+            return 2.0 if action == "STANDBY" else -1.5 
         
-        # Base Threat Rewards
         crit_count = sum(1 for s in signals if s.get('threat_level') == 'CRITICAL')
         high_count = sum(1 for s in signals if s.get('threat_level') == 'HIGH')
         
-        # Strategic Objectives:
-        # 1. Neutralize Threats
         threat_reward = (crit_count * 20.0) + (high_count * 10.0)
         
-        # 2. Spectral Efficiency (Penalty for broad/barrage jamming if few targets)
         efficiency_penalty = 0
         if action == "JAM_BARRAGE" and len(signals) < 3:
             efficiency_penalty = -10.0
         
-        # 3. Energy Cost Management
         energy_cost = {
             "STANDBY":      0.0,
             "LOOK_THROUGH": -0.5,
@@ -165,24 +160,21 @@ class SmartOptimizer:
             "DRFM_GHOSTS":  -4.0
         }.get(action, -1.0)
 
-        # 4. Intelligence Bonus
         intel_bonus = 5.0 if any('predicted_next_mhz' in s for s in signals) else 0.0
 
-        # 5. Collaborative Interference Avoidance (V7)
+        # Collaborative Interference Avoidance (V1.2 Optimized)
         friendly_penalty = 0
-        from core.orchestrator import SystemOrchestrator # Reference friendly list if available
-        # In a real impl, we'd pass friendly_freqs as state. 
-        # Here we simulate the effect of 'Friendly detected' signal being jammed.
-        for s in signals:
-            if s.get('rfi_hash') in ["0xA1B2C", "0xF9E8D"]: # Simulated registry match
-                if action in ["JAM_SPOT", "JAM_BARRAGE"]:
-                    friendly_penalty -= 50.0
+        if friendly_registry:
+            friendly_hashes = [node.get('rfi_hash') for node in friendly_registry]
+            for s in signals:
+                if s.get('rfi_hash') in friendly_hashes:
+                    if action in ["JAM_SPOT", "JAM_BARRAGE"]:
+                        friendly_penalty -= 50.0
 
         total_reward = threat_reward + energy_cost + efficiency_penalty + intel_bonus + friendly_penalty
         
-        # Success check: If jamming high-threat areas correctly
         if action in ["JAM_SPOT", "JAM_BARRAGE", "DRFM_GHOSTS"] and (crit_count > 0 or high_count > 0):
-            if friendly_penalty == 0: # Only if we didn't hit friendlies
+            if friendly_penalty == 0: 
                 total_reward += 10.0
             
         return total_reward
