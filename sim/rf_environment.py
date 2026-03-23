@@ -6,19 +6,21 @@ import threading
 import time
 from core.config import SAMPLING_RATE, CENTER_FREQ, FFT_SIZE, NOISE_FLOOR
 
+from core.sdr_interface import SDRInterface
+
 UDP_HOST = '127.0.0.1'
 UDP_PORT = 5005
 UDP_TIMEOUT = 2.0
 
 
-class RFEnvironment:
+class RFEnvironment(SDRInterface):
     """RF environment: receives spectrum via UDP when available, falls back to
     built-in simulation. Jamming effects are applied to whichever source is active."""
 
     def __init__(self, udp_host=UDP_HOST, udp_port=UDP_PORT):
-        self.center_freq    = CENTER_FREQ
-        self.fs             = SAMPLING_RATE
-        self.fft_size       = FFT_SIZE
+        self._center_freq    = CENTER_FREQ
+        self._fs             = SAMPLING_RATE
+        self._fft_size       = FFT_SIZE
         self.noise_floor    = NOISE_FLOOR
         self.active_signals = []
         self.jamming_action = "STANDBY"
@@ -28,6 +30,22 @@ class RFEnvironment:
         self._udp_lock        = threading.Lock()
 
         self._start_udp_listener(udp_host, udp_port)
+
+    @property
+    def fs(self) -> float:
+        return self._fs
+
+    @property
+    def center_freq(self) -> float:
+        return self._center_freq
+
+    @property
+    def fft_size(self) -> int:
+        return self._fft_size
+
+    def is_active(self) -> bool:
+        """Simulator is always active (either UDP or local)."""
+        return True
 
     def set_jamming(self, action):
         self.jamming_action = action

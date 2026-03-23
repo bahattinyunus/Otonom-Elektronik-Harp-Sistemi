@@ -11,15 +11,21 @@ from modules.synthesizer.waveform_gen import WaveformSynthesizer
 from modules.predictor.hop_predictor import FrequencyHopPredictor
 from modules.optimizer.ep_agent import EPAgent
 from modules.analytics.mission_analyzer import MissionAnalyzer
-from core.config import NOISE_FLOOR
+from core.config import NOISE_FLOOR, SDR_TYPE
 from core.blackbox import MissionLogger
+from sim.rf_environment import RFEnvironment
 
 
 class SystemOrchestrator:
     """Main brain of the system. Routes data between all processing modules."""
 
     def __init__(self):
-        self.env        = RFEnvironment()
+        # SDR Hardware Abstraction Layer (HAL)
+        if SDR_TYPE == "SIMULATED":
+            self.env = RFEnvironment()
+        else:
+            # Placeholder for RealSDR(SDRInterface)
+            self.env = RFEnvironment() 
         self.detector   = WaterfallDetector()
         self.classifier = ModulationClassifier()
         self.df         = DirectionFinder()
