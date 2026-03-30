@@ -10,6 +10,9 @@
 **Otonom Elektronik Harp Sistemi (Cognitive-EW-Suite)**, modern elektronik harp (EH) ve elektromanyetik spektrum operasyonlarında (EMSO) Derin Öğrenme (Deep Learning) ve Pekiştirmeli Öğrenme (Reinforcement Learning) metodolojilerini spektral analiz süreçlerine entegre eden otonom bir Bilişsel Elektronik Harp (Cognitive EW) platformudur.
 
 ### 🏭 SDR Hardware Abstraction Layer (HAL) - [v0.4]
+
+![Donanım Mimarisi](donanim-mimarisi.png)
+
 Sistem, donanım bağımsızlığı (HW Agnostic) vizyonuyla yeniden mimarize edilmiştir. `SDRInterface` soyutlama katmanı sayesinde; RTLSDR, HackRF, USRP veya simüle edilmiş bir `RFEnvironment` arasında geçiş yapmak sadece bir konfigürasyon değişikliği (`config.py`) kadar kolaydır. Bu, saha operasyonlarında farklı sensör setlerinin "Tak-Çalıştır" mantığıyla sisteme dahil edilmesini sağlar.
 
 ### 📡 CA-CFAR: Dinamik Eşikleme ve Gürültü Adaptasyonu - [v0.6]
@@ -29,6 +32,8 @@ Bu araştırma / prototip projesi, Elektronik Destek (ES) ile tespit edilen elek
 ---
 
 ## 🧠 Bilişsel Mimari ve Yapay Zeka Entegrasyonu
+
+![Sistem Mimarisi](sistem-mimarisi.png)
 
 Sistem, elektromanyetik spektrumdaki sinyal tespiti, sınıflandırma ve taarruz optimizasyonu görevlerini birbirinden bağımsız çalışan, ancak eşgüdümlü karar alan üç ana AI/ML işlem bloğuna ayırmıştır:
 
@@ -107,6 +112,9 @@ Sinyal tipi kestiriminde sadece ham güç değerleri değil, istatistiksel spekt
 ## 🧮 Alt Sistemler ve Taktik Destek Unsurları
 
 ### Zaman Farkı (TDOA) ile Otonom Yön Bulucu (DF)
+
+![TDOA Konsepti](tdoa-konsepti.png)
+
 Hedefin geliş açısı (Angle of Arrival - AoA), birden fazla karşılama anteni (Antenna Array) simülasyonu üzerinden, sinyallerin varış zamanı farkları (TDOA) ölçülerek hesaplanır. 
 Gerçek bir savaş alanı simülasyonu sağlamak için hedefin bulunduğu ideal açı değerinin üzerine $\mu=0, \sigma=2.0$ varyansına sahip Gaussian White Noise (Beyaz Gürültü) eklenir. Sistem, Radar (Polar) ekranında bu bulanıklaşmış hedefe kilitlenme işlemi uygular.
 
